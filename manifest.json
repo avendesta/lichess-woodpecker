@@ -6,11 +6,7 @@
   "permissions": [
     "storage",
     "activeTab",
-    "tabs",
     "scripting"
-  ],
-  "host_permissions": [
-    "https://lichess.org/*"
   ],
   "action": {
     "default_popup": "popup.html",

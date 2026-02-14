@@ -20,7 +20,6 @@ const INCLUDE = [
   "manifest.json",
   "background.js",
   "browser-polyfill.js",
-  "extract-puzzle.js",
   "popup.html",
   "popup.css",
   "popup.js",

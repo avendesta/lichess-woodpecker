@@ -19,7 +19,6 @@ lichess-note/
 ├── manifest.json            # MV3 manifest (Chrome + Firefox compatible)
 ├── browser-polyfill.js      # Minimal polyfill: wraps chrome.* as browser.*
 ├── background.js            # Service worker: storage ops, URL parsing, message handler
-├── extract-puzzle.js        # Content script: DOM-based puzzle ID extraction
 ├── popup.html               # Popup UI markup
 ├── popup.css                # Popup styles (dark theme)
 ├── popup.js                 # Popup logic: save flow, category selector, quick view
@@ -119,10 +118,10 @@ The extension requests the minimum permissions required for its functionality:
 | Permission | Type | Why it's needed |
 |---|---|---|
 | `storage` | Permission | Persist puzzle IDs and categories locally via `storage.local`. Core to the extension's purpose. |
-| `activeTab` | Permission | Grants access to the active tab only when the user clicks the extension icon. No background access. |
-| `tabs` | Permission | Required by Chrome so that `tabs.query` returns the `url` property. Without this, the extension cannot detect if the current page is a Lichess puzzle. |
-| `scripting` | Permission | Enables `scripting.executeScript` to inject a small content script that reads the puzzle ID from the page DOM. Only used on `/training` and `/training/mix` pages where the ID is not in the URL. |
-| `https://lichess.org/*` | Host permission | Required by the `scripting` API to inject the content script. Scoped exclusively to Lichess — no other sites are accessed. |
+| `activeTab` | Permission | Grants temporary access to the active tab when the user clicks the extension icon. Allows reading the tab URL and injecting a script to extract the puzzle ID from the DOM. No background or persistent access. |
+| `scripting` | Permission | Enables `scripting.executeScript` to inject an inline function into the active tab that reads the puzzle ID from the page DOM. Only used on `/training` and `/training/mix` pages where the ID is not in the URL. Works with `activeTab` — no `host_permissions` needed. |
+
+No `tabs` permission or `host_permissions` are requested.
 
 **No data is collected, transmitted, or shared.** See the [Privacy Policy](#privacy-policy) for full details.
 

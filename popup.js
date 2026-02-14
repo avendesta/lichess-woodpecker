@@ -35,6 +35,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 /* ============================================================
  * Detect current tab URL and extract puzzle ID
+ * ============================================================
+ * With activeTab permission, tabs.query returns the url of the
+ * active tab when the popup is opened (user clicked the action).
+ * No "tabs" permission or "host_permissions" needed.
  * ============================================================ */
 async function detectCurrentTab() {
   try {
@@ -72,18 +76,17 @@ async function detectCurrentTab() {
 }
 
 /**
- * Inject a content script into the active tab to extract the puzzle ID from the DOM.
- * Used when the URL is /training or /training/mix and the ID isn't in the path.
+ * Inject an inline function into the active tab to extract the puzzle ID from the DOM.
+ * Uses chrome.scripting.executeScript with func: (not files:) so it works with
+ * activeTab permission alone — no host_permissions required.
  */
 async function extractPuzzleIdFromDOM() {
   try {
-    // Use chrome.scripting API (available via polyfill or natively)
     const api = (typeof chrome !== "undefined" && chrome.scripting) ? chrome : browser;
     const results = await api.scripting.executeScript({
       target: { tabId: currentTabId },
-      files: ["extract-puzzle.js"],
+      func: extractPuzzleIdFromPage,
     });
-    // executeScript returns an array of InjectionResult; the script's return value is in .result
     const id = results && results[0] && results[0].result;
     // Strict validation: must be exactly 5 alphanumeric characters
     if (id && /^[A-Za-z0-9]{5}$/.test(id)) {
@@ -94,6 +97,51 @@ async function extractPuzzleIdFromDOM() {
     console.error("[popup] DOM extraction error:", e);
     return null;
   }
+}
+
+/**
+ * This function is serialised and injected into the page context.
+ * It runs in the content script world, NOT in the popup.
+ * It must be self-contained — no closures or external references.
+ *
+ * Strict extraction rules:
+ *   - Only matches <a> elements whose href is /training/{5-char-id}
+ *   - The anchor's textContent must match exactly #[A-Za-z0-9]{5}
+ *   - Prefers visible anchors closest to a "Puzzle" label/container
+ *   - Does NOT scan arbitrary page text to avoid false positives
+ */
+function extractPuzzleIdFromPage() {
+  const TEXT_RE = /^#[A-Za-z0-9]{5}$/;
+  const links = document.querySelectorAll('a[href^="/training/"]');
+  const candidates = [];
+
+  for (const link of links) {
+    const hrefMatch = link.getAttribute("href").match(/^\/training\/([A-Za-z0-9]{5})$/);
+    if (!hrefMatch) continue;
+    const id = hrefMatch[1];
+    const text = link.textContent.trim();
+    if (!TEXT_RE.test(text)) continue;
+    if (text.slice(1) !== id) continue;
+    candidates.push({ link, id });
+  }
+
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0].id;
+
+  // Multiple matches: prefer a visible anchor (offsetParent !== null)
+  const visible = candidates.filter((c) => c.link.offsetParent !== null);
+  if (visible.length === 1) return visible[0].id;
+
+  // Among visible (or all if none visible), prefer one inside a parent containing "Puzzle" text
+  const pool = visible.length > 0 ? visible : candidates;
+  for (const c of pool) {
+    const parent = c.link.closest("p, div, span, header, section");
+    if (parent && /\bPuzzle\b/i.test(parent.textContent)) {
+      return c.id;
+    }
+  }
+
+  return pool[0].id;
 }
 
 function showValidStatus(id) {

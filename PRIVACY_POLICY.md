@@ -41,10 +41,10 @@ Saved data persists in your browser's local extension storage until:
 | Permission | Purpose |
 |---|---|
 | `storage` | Store puzzle IDs and categories locally |
-| `activeTab` | Access the active tab when the user clicks the extension icon |
-| `tabs` | Read the current tab URL to detect Lichess puzzle pages |
-| `scripting` | Inject a content script to extract the puzzle ID from the page DOM when the URL does not contain it (e.g., `/training`, `/training/mix`) |
-| `host_permissions: https://lichess.org/*` | Required to inject the content script into Lichess pages |
+| `activeTab` | Grants temporary access to the active tab when the user clicks the extension icon. Allows reading the tab URL and injecting a script to read the puzzle ID from the DOM. |
+| `scripting` | Inject an inline function into the active tab to extract the puzzle ID from the page DOM when the URL does not contain it (e.g., `/training`, `/training/mix`). Works with `activeTab` — no host permissions needed. |
+
+No `tabs` permission or `host_permissions` are requested. The extension has no persistent access to any website.
 
 ## Changes to This Policy
 

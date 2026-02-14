@@ -122,10 +122,8 @@
       </thead>
       <tbody>
         <tr><td><code>storage</code></td><td>Store puzzle IDs and categories locally</td></tr>
-        <tr><td><code>activeTab</code></td><td>Access the active tab when the user clicks the extension icon</td></tr>
-        <tr><td><code>tabs</code></td><td>Read the current tab URL to detect Lichess puzzle pages</td></tr>
-        <tr><td><code>scripting</code></td><td>Inject a content script to extract the puzzle ID from the page DOM when the URL does not contain it</td></tr>
-        <tr><td><code>host_permissions: https://lichess.org/*</code></td><td>Required to inject the content script into Lichess pages</td></tr>
+        <tr><td><code>activeTab</code></td><td>Grants temporary access to the active tab when the user clicks the extension icon. Allows reading the tab URL and injecting a script to read the puzzle ID from the DOM. No background or persistent access.</td></tr>
+        <tr><td><code>scripting</code></td><td>Inject an inline function into the active tab to extract the puzzle ID from the page DOM when the URL does not contain it. Works with <code>activeTab</code> — no host permissions needed.</td></tr>
       </tbody>
     </table>
 
