@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lichess Puzzle Notes — Manager</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <svg class="logo" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+        </svg>
+        <h1>Lichess Puzzle Notes</h1>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input type="text" id="search-input" class="search-input" placeholder="Search puzzle IDs across all categories…" />
+      </div>
+      <div class="toolbar-right">
+        <button id="btn-new-category" class="btn btn-primary">+ New Category</button>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <main class="main" id="main-content">
+      <p class="empty-state" id="empty-state">No categories yet — create one to start saving puzzles.</p>
+    </main>
+
+    <!-- New / Rename Category Modal -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+      <div class="modal">
+        <h2 id="modal-title">New Category</h2>
+        <input type="text" id="modal-input" class="modal-input" placeholder="Category name" maxlength="60" />
+        <p class="modal-error hidden" id="modal-error"></p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="modal-confirm">Create</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-overlay hidden" id="delete-overlay">
+      <div class="modal">
+        <h2>Delete Category</h2>
+        <p id="delete-message" class="delete-message">Are you sure you want to delete this category and all its puzzles?</p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="delete-cancel">Cancel</button>
+          <button class="btn btn-danger" id="delete-confirm">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="browser-polyfill.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
