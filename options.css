@@ -352,6 +352,19 @@ body {
 .toast.toast-error { background: var(--danger); color: #fff; }
 .toast.toast-warn { background: var(--warning); color: #1a1a2e; }
 
+/* ---- Export ---- */
+.export-section {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.btn-export {
+  padding: 10px 24px;
+  font-size: 14px;
+}
+
 /* ---- Utility ---- */
 .hidden {
   display: none !important;

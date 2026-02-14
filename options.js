@@ -27,6 +27,7 @@ const deleteCancel = document.getElementById("delete-cancel");
 const deleteConfirm = document.getElementById("delete-confirm");
 
 const toastEl = document.getElementById("toast");
+const btnExport = document.getElementById("btn-export");
 
 let toastTimeout = null;
 let modalMode = null; // "create" | "rename"
@@ -159,6 +160,9 @@ function bindEvents() {
 
   // Search
   searchInput.addEventListener("input", () => refreshUI());
+
+  // Export
+  btnExport.addEventListener("click", handleExport);
 
   // Delegated clicks on main content (puzzle actions + category actions)
   mainContent.addEventListener("click", async (e) => {
@@ -340,4 +344,50 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
+}
+
+/* ============================================================
+ * JSON Export
+ * ============================================================ */
+async function handleExport() {
+  try {
+    const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
+    const manifest = browser.runtime.getManifest();
+    const now = new Date();
+
+    const exportObj = {
+      app: "lichess-puzzle-saver",
+      exportVersion: 1,
+      exportedAt: now.toISOString(),
+      source: {
+        extension: "chrome",
+        extensionVersion: manifest.version,
+      },
+      data: {
+        categories: data.categories || {},
+      },
+    };
+
+    const json = JSON.stringify(exportObj, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const dd = String(now.getDate()).padStart(2, "0");
+    const filename = `lichess-puzzle-saver-export-${yyyy}-${mm}-${dd}.json`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast("Export downloaded.", "success");
+  } catch (e) {
+    console.error("[options] Export error:", e);
+    showToast("Export failed.", "error");
+  }
 }
