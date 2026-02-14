@@ -139,15 +139,18 @@ async function removePuzzleFromCategory(category, puzzleId) {
  *   - Hostname must be exactly "lichess.org"
  *   - Pathname must be /training/{id} (extract ID from URL), OR
  *     /training, /training/, /training/mix, /training/mix/ (extract ID from DOM)
- *   - {id} must be non-empty and contain only alphanumeric chars
+ *   - {id} must be exactly 5 alphanumeric characters: [A-Za-z0-9]{5}
+ *   - {id} must not be "mix"
  *   - Query strings and hash fragments are allowed but ignored
  *   - Protocol must be https
  *
  * Returns:
- *   - The puzzle ID string if extractable from the URL
+ *   - The puzzle ID string if extractable and valid from the URL
  *   - "NEED_DOM" if the URL is a valid training page but the ID must come from the DOM
- *   - null if the URL is not a Lichess training page at all
+ *   - null if the URL is not a Lichess training page or the ID is invalid
  * ============================================================ */
+const PUZZLE_ID_RE = /^[A-Za-z0-9]{5}$/;
+
 function extractPuzzleId(urlString) {
   try {
     const url = new URL(urlString);
@@ -168,14 +171,13 @@ function extractPuzzleId(urlString) {
 
     // /training/mix -> need DOM extraction
     if (id === "mix") {
-      // Only allow /training/mix, not /training/mix/extra
       if (segments.length > 3) return null;
       return "NEED_DOM";
     }
 
-    // /training/{id} — must be exactly 3 segments with alphanumeric ID
+    // /training/{id} — must be exactly 3 segments with a valid 5-char alphanumeric ID
     if (segments.length !== 3) return null;
-    if (!id || !/^[a-zA-Z0-9]+$/.test(id)) return null;
+    if (!PUZZLE_ID_RE.test(id)) return null;
 
     return id;
   } catch {

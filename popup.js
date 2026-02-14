@@ -84,8 +84,10 @@ async function extractPuzzleIdFromDOM() {
       files: ["extract-puzzle.js"],
     });
     // executeScript returns an array of InjectionResult; the script's return value is in .result
-    if (results && results[0] && results[0].result) {
-      return results[0].result;
+    const id = results && results[0] && results[0].result;
+    // Strict validation: must be exactly 5 alphanumeric characters
+    if (id && /^[A-Za-z0-9]{5}$/.test(id)) {
+      return id;
     }
     return null;
   } catch (e) {
