@@ -137,10 +137,16 @@ async function removePuzzleFromCategory(category, puzzleId) {
  * ============================================================
  * Rules:
  *   - Hostname must be exactly "lichess.org"
- *   - Pathname must be exactly /training/{id} (two segments)
+ *   - Pathname must be /training/{id} (extract ID from URL), OR
+ *     /training, /training/, /training/mix, /training/mix/ (extract ID from DOM)
  *   - {id} must be non-empty and contain only alphanumeric chars
  *   - Query strings and hash fragments are allowed but ignored
  *   - Protocol must be https
+ *
+ * Returns:
+ *   - The puzzle ID string if extractable from the URL
+ *   - "NEED_DOM" if the URL is a valid training page but the ID must come from the DOM
+ *   - null if the URL is not a Lichess training page at all
  * ============================================================ */
 function extractPuzzleId(urlString) {
   try {
@@ -148,13 +154,27 @@ function extractPuzzleId(urlString) {
     if (url.protocol !== "https:") return null;
     if (url.hostname !== "lichess.org") return null;
 
+    // Normalise: strip trailing slash for easier matching
+    const pathname = url.pathname.replace(/\/+$/, "") || "/";
+
     // Split pathname into segments: "/training/0j7EP" -> ["", "training", "0j7EP"]
-    const segments = url.pathname.split("/");
-    if (segments.length !== 3) return null; // must be exactly 3 parts
-    if (segments[0] !== "") return null; // leading slash
-    if (segments[1] !== "training") return null;
+    const segments = pathname.split("/");
+    if (segments.length < 2 || segments[0] !== "" || segments[1] !== "training") return null;
+
+    // /training (no ID segment)
+    if (segments.length === 2) return "NEED_DOM";
 
     const id = segments[2];
+
+    // /training/mix -> need DOM extraction
+    if (id === "mix") {
+      // Only allow /training/mix, not /training/mix/extra
+      if (segments.length > 3) return null;
+      return "NEED_DOM";
+    }
+
+    // /training/{id} — must be exactly 3 segments with alphanumeric ID
+    if (segments.length !== 3) return null;
     if (!id || !/^[a-zA-Z0-9]+$/.test(id)) return null;
 
     return id;

@@ -20,6 +20,8 @@ const emptyState = document.getElementById("empty-state");
 const searchInput = document.getElementById("search-input");
 
 let currentPuzzleId = null; // extracted from current tab
+let currentTabId = null; // active tab ID, needed for DOM extraction
+let needsDomExtraction = false; // true when ID must come from page DOM
 let toastTimeout = null;
 
 /* ============================================================
@@ -41,17 +43,54 @@ async function detectCurrentTab() {
       showInvalidStatus();
       return;
     }
+    currentTabId = tabs[0].id;
     const url = tabs[0].url || "";
     const resp = await browser.runtime.sendMessage({ type: "EXTRACT_PUZZLE_ID", url });
-    if (resp && resp.puzzleId) {
+
+    if (resp && resp.puzzleId === "NEED_DOM") {
+      // URL is a valid training page but ID must be extracted from the DOM
+      needsDomExtraction = true;
+      const domId = await extractPuzzleIdFromDOM();
+      if (domId) {
+        currentPuzzleId = domId;
+        showValidStatus(currentPuzzleId);
+      } else {
+        showInvalidStatus();
+      }
+    } else if (resp && resp.puzzleId) {
+      needsDomExtraction = false;
       currentPuzzleId = resp.puzzleId;
       showValidStatus(currentPuzzleId);
     } else {
+      needsDomExtraction = false;
       showInvalidStatus();
     }
   } catch (e) {
     console.error("[popup] Tab detection error:", e);
     showInvalidStatus();
+  }
+}
+
+/**
+ * Inject a content script into the active tab to extract the puzzle ID from the DOM.
+ * Used when the URL is /training or /training/mix and the ID isn't in the path.
+ */
+async function extractPuzzleIdFromDOM() {
+  try {
+    // Use chrome.scripting API (available via polyfill or natively)
+    const api = (typeof chrome !== "undefined" && chrome.scripting) ? chrome : browser;
+    const results = await api.scripting.executeScript({
+      target: { tabId: currentTabId },
+      files: ["extract-puzzle.js"],
+    });
+    // executeScript returns an array of InjectionResult; the script's return value is in .result
+    if (results && results[0] && results[0].result) {
+      return results[0].result;
+    }
+    return null;
+  } catch (e) {
+    console.error("[popup] DOM extraction error:", e);
+    return null;
   }
 }
 
@@ -275,6 +314,20 @@ function bindEvents() {
  * Save handler
  * ============================================================ */
 async function handleSave() {
+  // Re-extract from DOM on each save click when the URL doesn't contain the ID,
+  // because puzzles change dynamically on /training and /training/mix pages.
+  if (needsDomExtraction) {
+    const freshId = await extractPuzzleIdFromDOM();
+    if (freshId) {
+      currentPuzzleId = freshId;
+      showValidStatus(currentPuzzleId);
+    } else {
+      showInvalidStatus();
+      showToast("No puzzle found on page.", "error");
+      return;
+    }
+  }
+
   if (!currentPuzzleId) return;
 
   let category = categorySelect.value;
