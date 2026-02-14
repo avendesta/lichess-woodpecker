@@ -1,0 +1,18 @@
+# Release builds
+/release/
+*.zip
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build caches
+dist/
+.cache/

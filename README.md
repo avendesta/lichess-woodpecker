@@ -16,20 +16,28 @@ A cross-browser Manifest V3 extension for saving Lichess training puzzle IDs int
 
 ```
 lichess-note/
-├── manifest.json          # MV3 manifest (Chrome + Firefox compatible)
-├── browser-polyfill.js    # Minimal polyfill: wraps chrome.* as browser.*
-├── background.js          # Service worker: storage ops, URL parsing, message handler
-├── popup.html             # Popup UI markup
-├── popup.css              # Popup styles (dark theme)
-├── popup.js               # Popup logic: save flow, category selector, quick view
-├── options.html           # Full manager page markup
-├── options.css            # Manager page styles
-├── options.js             # Manager logic: CRUD categories/puzzles, search
+├── manifest.json            # MV3 manifest (Chrome + Firefox compatible)
+├── browser-polyfill.js      # Minimal polyfill: wraps chrome.* as browser.*
+├── background.js            # Service worker: storage ops, URL parsing, message handler
+├── extract-puzzle.js        # Content script: DOM-based puzzle ID extraction
+├── popup.html               # Popup UI markup
+├── popup.css                # Popup styles (dark theme)
+├── popup.js                 # Popup logic: save flow, category selector, quick view
+├── options.html             # Full manager page markup
+├── options.css              # Manager page styles
+├── options.js               # Manager logic: CRUD categories/puzzles, search
 ├── icons/
-│   ├── icon16.png         # Toolbar icon
-│   ├── icon48.png         # Extension management icon
-│   └── icon128.png        # Store/install icon
-├── generate-icons.js      # (Dev utility) Generates PNG icons from code
+│   ├── icon16.png           # Toolbar icon
+│   ├── icon48.png           # Extension management icon
+│   └── icon128.png          # Store/install icon
+├── scripts/
+│   └── package.js           # Packaging script for Chrome Web Store ZIP
+├── docs/
+│   └── privacy-policy.html  # Hosted privacy policy (GitHub Pages)
+├── generate-icons.js        # (Dev utility) Generates PNG icons from code
+├── package.json             # npm scripts (package, generate-icons)
+├── PRIVACY_POLICY.md        # Privacy policy
+├── .gitignore
 └── README.md
 ```
 
@@ -104,13 +112,55 @@ The `extractPuzzleId(url)` function in `background.js` enforces:
 | `https://lichess.org/puzzles/0j7EP` | ❌ wrong path |
 | `https://other.org/training/0j7EP` | ❌ wrong hostname |
 
-## Permissions
+## Permissions Rationale
 
-| Permission | Reason |
-|---|---|
-| `storage` | Persist categories and puzzle IDs across sessions |
-| `activeTab` | Grants access to the active tab on extension icon click |
-| `tabs` | Read tab URLs via `tabs.query` (needed for Chrome to return the `url` field) |
+The extension requests the minimum permissions required for its functionality:
+
+| Permission | Type | Why it's needed |
+|---|---|---|
+| `storage` | Permission | Persist puzzle IDs and categories locally via `storage.local`. Core to the extension's purpose. |
+| `activeTab` | Permission | Grants access to the active tab only when the user clicks the extension icon. No background access. |
+| `tabs` | Permission | Required by Chrome so that `tabs.query` returns the `url` property. Without this, the extension cannot detect if the current page is a Lichess puzzle. |
+| `scripting` | Permission | Enables `scripting.executeScript` to inject a small content script that reads the puzzle ID from the page DOM. Only used on `/training` and `/training/mix` pages where the ID is not in the URL. |
+| `https://lichess.org/*` | Host permission | Required by the `scripting` API to inject the content script. Scoped exclusively to Lichess — no other sites are accessed. |
+
+**No data is collected, transmitted, or shared.** See the [Privacy Policy](#privacy-policy) for full details.
+
+## Privacy Policy
+
+The full privacy policy is available at:
+
+- **In this repo:** [PRIVACY_POLICY.md](./PRIVACY_POLICY.md)
+- **Hosted (for Web Store):** [docs/privacy-policy.html](./docs/privacy-policy.html) — deploy via GitHub Pages at `https://<username>.github.io/lichess-note/privacy-policy.html`
+
+**Summary:** The extension stores only puzzle IDs and category names locally on your device. It makes zero network requests, collects no personal data, and shares nothing with third parties.
+
+**Contact:** avendestawork@gmail.com
+
+## Packaging for Chrome Web Store
+
+To produce a release ZIP suitable for uploading to the Chrome Web Store:
+
+```bash
+npm run package
+```
+
+This runs `scripts/package.js`, which:
+
+1. Reads the version from `manifest.json`
+2. Validates that all runtime files exist
+3. Creates `release/lichess-puzzle-saver-v<version>.zip` containing only the files Chrome needs
+
+**Output:** `release/lichess-puzzle-saver-v1.0.0.zip`
+
+The ZIP excludes all dev files (README, docs, scripts, `.git/`, etc.) and contains only:
+
+- `manifest.json`, `background.js`, `browser-polyfill.js`, `extract-puzzle.js`
+- `popup.html`, `popup.css`, `popup.js`
+- `options.html`, `options.css`, `options.js`
+- `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png`
+
+> The `release/` directory and `*.zip` files are git-ignored and will not be committed.
 
 ## Manual Test Checklist
 
