@@ -352,7 +352,9 @@ function escapeHtml(str) {
 async function handleExport() {
   try {
     const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
-    const manifest = browser.runtime.getManifest();
+    const rt = (typeof chrome !== "undefined" && chrome.runtime) ? chrome.runtime
+             : (typeof browser !== "undefined" && browser.runtime ? browser.runtime : null);
+    const manifest = rt && rt.getManifest ? rt.getManifest() : null;
     const now = new Date();
 
     const exportObj = {
@@ -361,7 +363,7 @@ async function handleExport() {
       exportedAt: now.toISOString(),
       source: {
         extension: "chrome",
-        extensionVersion: manifest.version,
+        extensionVersion: manifest?.version || "unknown",
       },
       data: {
         categories: data.categories || {},
