@@ -509,9 +509,12 @@ async function startTrainingSession(categoryName, puzzleIds) {
   // Navigate active tab to first puzzle and close popup
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   if (tabs && tabs.length > 0) {
-    await browser.tabs.update(tabs[0].id, { url: queue[0] });
+    chrome.tabs.update(tabs[0].id, { url: queue[0] }, () => {
+      window.close();
+    });
+  } else {
+    window.close();
   }
-  window.close();
 }
 
 /* ============================================================

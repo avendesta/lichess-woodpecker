@@ -43,8 +43,8 @@
 
   function getAllData() {
     return new Promise((resolve) => {
-      storage.local.get("data", (result) => {
-        const d = result.data || { categories: {} };
+      storage.local.get("lichessNotes", (result) => {
+        const d = result.lichessNotes || { categories: {} };
         resolve(d);
       });
     });
@@ -54,11 +54,16 @@
    * Read session — bail if none
    * ============================================================ */
   let session = await getSession();
-  if (!session) return;
+  if (!session) {
+    console.log("[lpn] No active training session.");
+    return;
+  }
+  console.log("[lpn] Training session found:", session.category, session.completedInCycle + "/" + session.totalPuzzles);
 
   // Validate category still exists
   const allData = await getAllData();
   if (!allData.categories[session.category]) {
+    console.warn("[lpn] Category no longer exists, ending session.");
     await clearSession();
     return;
   }
@@ -321,8 +326,10 @@
           return;
         }
         cat.push(currentId);
+        freshData.meta = freshData.meta || {};
+        freshData.meta.updatedAt = Date.now();
         await new Promise((resolve) => {
-          storage.local.set({ data: freshData }, resolve);
+          storage.local.set({ lichessNotes: freshData }, resolve);
         });
         showOverlayToast(`Saved to ${name}`);
         dropdown.remove();
