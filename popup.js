@@ -17,7 +17,6 @@ const btnOptions = document.getElementById("btn-options");
 const toastEl = document.getElementById("toast");
 const categoriesList = document.getElementById("categories-list");
 const emptyState = document.getElementById("empty-state");
-const searchInput = document.getElementById("search-input");
 
 let currentPuzzleId = null; // extracted from current tab
 let currentTabId = null; // active tab ID, needed for DOM extraction
@@ -170,7 +169,7 @@ async function refreshUI() {
   rebuildCategoryDropdown(catNames);
 
   // Rebuild puzzle list view
-  renderPuzzleList(categories, catNames, searchInput.value.trim());
+  renderPuzzleList(categories, catNames);
 }
 
 function rebuildCategoryDropdown(catNames) {
@@ -208,9 +207,8 @@ function rebuildCategoryDropdown(catNames) {
 /* ============================================================
  * Render puzzle list grouped by category
  * ============================================================ */
-function renderPuzzleList(categories, catNames, filter) {
+function renderPuzzleList(categories, catNames) {
   categoriesList.innerHTML = "";
-  const lowerFilter = (filter || "").toLowerCase();
 
   if (catNames.length === 0) {
     emptyState.classList.remove("hidden");
@@ -221,14 +219,7 @@ function renderPuzzleList(categories, catNames, filter) {
   emptyState.classList.add("hidden");
 
   catNames.forEach((catName) => {
-    let puzzles = categories[catName] || [];
-
-    // Apply search filter
-    if (lowerFilter) {
-      puzzles = puzzles.filter((id) => id.toLowerCase().includes(lowerFilter));
-      // Hide category entirely if no matches
-      if (puzzles.length === 0) return;
-    }
+    const puzzles = categories[catName] || [];
 
     const block = document.createElement("div");
     block.className = "category-block";
@@ -236,20 +227,49 @@ function renderPuzzleList(categories, catNames, filter) {
     // Header
     const header = document.createElement("div");
     header.className = "category-header";
-    header.innerHTML = `
-      <div>
-        <span class="category-name">${escapeHtml(catName)}</span>
-        <span class="category-count">(${categories[catName].length})</span>
-      </div>
-      <span class="category-toggle open">▶</span>
+
+    const headerLeft = document.createElement("div");
+    headerLeft.innerHTML = `
+      <span class="category-name">${escapeHtml(catName)}</span>
+      <span class="category-count">(${puzzles.length})</span>
     `;
+
+    const headerRight = document.createElement("div");
+    headerRight.className = "category-header-actions";
+
+    // Copy IDs button
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn-copy-ids";
+    copyBtn.title = "Copy IDs";
+    copyBtn.dataset.cat = catName;
+    if (puzzles.length === 0) {
+      copyBtn.disabled = true;
+      copyBtn.title = "No IDs to copy";
+    }
+    copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy IDs`;
+    copyBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const ids = categories[catName] || [];
+      if (ids.length === 0) return;
+      await copyToClipboard(JSON.stringify(ids));
+      showToast("Copied IDs", "success");
+    });
+    headerRight.appendChild(copyBtn);
+
+    const toggle = document.createElement("span");
+    toggle.className = "category-toggle open";
+    toggle.textContent = "▶";
+    headerRight.appendChild(toggle);
+
+    header.appendChild(headerLeft);
+    header.appendChild(headerRight);
     block.appendChild(header);
 
     // Puzzle list
     const list = document.createElement("div");
     list.className = "puzzle-list";
 
-    if (puzzles.length === 0 && !lowerFilter) {
+    if (puzzles.length === 0) {
       list.innerHTML = `<p class="puzzle-empty">No puzzles saved in this category.</p>`;
     } else {
       puzzles.forEach((pid) => {
@@ -260,9 +280,6 @@ function renderPuzzleList(categories, catNames, filter) {
           <div class="puzzle-actions">
             <button class="btn-open" title="Open puzzle" data-id="${escapeHtml(pid)}">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </button>
-            <button class="btn-copy" title="Copy URL" data-id="${escapeHtml(pid)}">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
             </button>
             <button class="btn-remove" title="Remove puzzle" data-id="${escapeHtml(pid)}" data-cat="${escapeHtml(catName)}">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -276,9 +293,9 @@ function renderPuzzleList(categories, catNames, filter) {
     block.appendChild(list);
     categoriesList.appendChild(block);
 
-    // Toggle collapse
-    header.addEventListener("click", () => {
-      const toggle = header.querySelector(".category-toggle");
+    // Toggle collapse (only on header left side + toggle icon, not on copy button)
+    header.addEventListener("click", (e) => {
+      if (e.target.closest(".btn-copy-ids")) return;
       const isOpen = toggle.classList.contains("open");
       if (isOpen) {
         toggle.classList.remove("open");
@@ -289,14 +306,6 @@ function renderPuzzleList(categories, catNames, filter) {
       }
     });
   });
-
-  // If filter hid everything
-  if (categoriesList.children.length === 0) {
-    const noMatch = document.createElement("p");
-    noMatch.className = "empty-state";
-    noMatch.textContent = "No puzzles match your search.";
-    categoriesList.appendChild(noMatch);
-  }
 }
 
 /* ============================================================
@@ -325,11 +334,6 @@ function bindEvents() {
     browser.runtime.openOptionsPage();
   });
 
-  // Search
-  searchInput.addEventListener("input", () => {
-    refreshUI();
-  });
-
   // Delegated clicks for puzzle actions
   categoriesList.addEventListener("click", async (e) => {
     const btn = e.target.closest("button");
@@ -340,9 +344,6 @@ function bindEvents() {
 
     if (btn.classList.contains("btn-open")) {
       await browser.tabs.create({ url: `https://lichess.org/training/${puzzleId}` });
-    } else if (btn.classList.contains("btn-copy")) {
-      await copyToClipboard(`https://lichess.org/training/${puzzleId}`);
-      showToast("URL copied!", "success");
     } else if (btn.classList.contains("btn-remove")) {
       const cat = btn.dataset.cat;
       const resp = await browser.runtime.sendMessage({

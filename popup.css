@@ -248,11 +248,6 @@ select option {
   color: var(--text-muted);
 }
 
-.search-input {
-  width: 100%;
-  margin-bottom: 10px;
-}
-
 .categories-list {
   display: flex;
   flex-direction: column;
@@ -298,6 +293,40 @@ select option {
   font-size: 11px;
   color: var(--text-muted);
   margin-left: 6px;
+}
+
+.category-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-copy-ids {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.btn-copy-ids:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-copy-ids:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .category-toggle {
@@ -361,7 +390,6 @@ select option {
 }
 
 .puzzle-actions button.btn-open:hover { color: var(--success); }
-.puzzle-actions button.btn-copy:hover { color: var(--accent); }
 .puzzle-actions button.btn-remove:hover { color: var(--danger); }
 
 .puzzle-empty {
