@@ -149,7 +149,7 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`Packaging Lichess Puzzle Notes v${version}...\n`);
+  console.log(`Packaging Lichess Puzzle Bookmark v${version}...\n`);
 
   // Validate all included files exist
   const missing = INCLUDE.filter((f) => !fs.existsSync(path.join(ROOT, f)));

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Lichess Puzzle Notes",
+  "name": "Lichess Puzzle Bookmark",
   "version": "1.0.0",
   "description": "Save Lichess training puzzle IDs into user-defined categories for easy access and organization.",
   "permissions": [

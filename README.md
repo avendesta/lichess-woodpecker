@@ -1,4 +1,4 @@
-# Lichess Puzzle Notes
+# Lichess Puzzle Bookmark
 
 A cross-browser Manifest V3 extension for saving Lichess training puzzle IDs into user-defined categories.
 

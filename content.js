@@ -1,5 +1,5 @@
 /**
- * Lichess Puzzle Notes — Woodpecker Training Content Script
+ * Lichess Puzzle Bookmark — Woodpecker Training Content Script
  * Injected on lichess.org/training/* pages.
  * Reads session state from chrome.storage.local and renders a floating overlay.
  */

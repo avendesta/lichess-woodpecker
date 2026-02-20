@@ -1,5 +1,5 @@
 /**
- * Lichess Puzzle Notes — Popup UI Logic
+ * Lichess Puzzle Bookmark — Popup UI Logic
  * Handles save flow, category selection, quick puzzle view, and search.
  */
 

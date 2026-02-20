@@ -1,10 +1,10 @@
-# Privacy Policy — Lichess Puzzle Notes
+# Privacy Policy — Lichess Puzzle Bookmark
 
 **Last updated: February 13, 2026**
 
 ## Overview
 
-Lichess Puzzle Notes is a browser extension that lets users save Lichess training puzzle IDs into user-defined categories for personal organization. This policy explains what data the extension handles and how.
+Lichess Puzzle Bookmark is a browser extension that lets users save Lichess training puzzle IDs into user-defined categories for personal organization. This policy explains what data the extension handles and how.
 
 ## Data Collection
 
