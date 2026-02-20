@@ -270,7 +270,7 @@ function renderPuzzleList(categories, catNames) {
     headerRight.appendChild(copyBtn);
 
     const toggle = document.createElement("span");
-    toggle.className = "category-toggle open";
+    toggle.className = "category-toggle";
     toggle.textContent = "▶";
     headerRight.appendChild(toggle);
 
@@ -280,7 +280,7 @@ function renderPuzzleList(categories, catNames) {
 
     // Puzzle list
     const list = document.createElement("div");
-    list.className = "puzzle-list";
+    list.className = "puzzle-list hidden";
 
     if (puzzles.length === 0) {
       list.innerHTML = `<p class="puzzle-empty">No puzzles saved in this category.</p>`;

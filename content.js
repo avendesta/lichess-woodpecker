@@ -213,7 +213,10 @@
     `;
     timerRow.querySelector(".wpk-btn-reset").addEventListener("click", async () => {
       session.timerStartedAt = Date.now();
+      session.currentIndex = 0;
+      session.completedInCycle = 0;
       await saveSession(session);
+      window.location.href = session.queue[0];
     });
     body.appendChild(timerRow);
 
