@@ -1,0 +1,361 @@
+/* ============================================================
+ * Lichess Puzzle Notes — Woodpecker Training Overlay
+ * Injected on lichess.org/training/* pages
+ * ============================================================ */
+
+#lpn-woodpecker-overlay {
+  --wpk-bg: #1a1a2e;
+  --wpk-bg-card: #16213e;
+  --wpk-bg-hover: #1f2b47;
+  --wpk-accent: #2ecc71;
+  --wpk-accent-hover: #27ae60;
+  --wpk-text: #eaeaea;
+  --wpk-text-muted: #8892a4;
+  --wpk-text-dim: #5a6478;
+  --wpk-border: #2a3a5c;
+  --wpk-danger: #e74c3c;
+  --wpk-warning: #f39c12;
+  --wpk-radius: 8px;
+  --wpk-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  color: var(--wpk-text);
+  line-height: 1.4;
+}
+
+/* ---- Expanded panel ---- */
+#lpn-woodpecker-overlay .wpk-panel {
+  background: var(--wpk-bg);
+  border: 1px solid var(--wpk-border);
+  border-radius: var(--wpk-radius);
+  width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+/* ---- Title bar ---- */
+#lpn-woodpecker-overlay .wpk-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--wpk-bg-card);
+  border-bottom: 1px solid var(--wpk-border);
+  user-select: none;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-left .wpk-icon {
+  font-size: 16px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns {
+  display: flex;
+  gap: 4px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns button {
+  background: none;
+  border: 1px solid var(--wpk-border);
+  color: var(--wpk-text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 0;
+  font-family: var(--wpk-font);
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns button:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+  background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns .wpk-btn-close:hover {
+  color: var(--wpk-danger);
+  border-color: var(--wpk-danger);
+}
+
+/* ---- Body ---- */
+#lpn-woodpecker-overlay .wpk-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- Info rows ---- */
+#lpn-woodpecker-overlay .wpk-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+#lpn-woodpecker-overlay .wpk-info-label {
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-info-value {
+  color: var(--wpk-text);
+  font-weight: 600;
+}
+
+/* ---- Progress bar ---- */
+#lpn-woodpecker-overlay .wpk-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#lpn-woodpecker-overlay .wpk-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--wpk-bg-card);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-progress-fill {
+  height: 100%;
+  background: var(--wpk-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+#lpn-woodpecker-overlay .wpk-progress-text {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+/* ---- Timer row ---- */
+#lpn-woodpecker-overlay .wpk-timer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#lpn-woodpecker-overlay .wpk-timer-display {
+  font-family: "SF Mono", "Consolas", "Monaco", monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--wpk-text);
+  letter-spacing: 1px;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-reset {
+  background: none;
+  border: 1px solid var(--wpk-border);
+  color: var(--wpk-text-muted);
+  font-size: 11px;
+  font-family: var(--wpk-font);
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-reset:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+}
+
+/* ---- Action buttons ---- */
+#lpn-woodpecker-overlay .wpk-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-quicksave,
+#lpn-woodpecker-overlay .wpk-btn-next {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--wpk-font);
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+  text-align: center;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-quicksave {
+  background: var(--wpk-bg-card);
+  color: var(--wpk-text-muted);
+  border: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-quicksave:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+  background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-next {
+  background: var(--wpk-accent);
+  color: #fff;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-next:hover {
+  background: var(--wpk-accent-hover);
+}
+
+/* ---- Quick save dropdown ---- */
+#lpn-woodpecker-overlay .wpk-quicksave-dropdown {
+  background: var(--wpk-bg-card);
+  border: 1px solid var(--wpk-border);
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#lpn-woodpecker-overlay .wpk-quicksave-dropdown button {
+  background: none;
+  border: none;
+  color: var(--wpk-text);
+  font-size: 12px;
+  font-family: var(--wpk-font);
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+#lpn-woodpecker-overlay .wpk-quicksave-dropdown button:hover {
+  background: var(--wpk-bg-hover);
+}
+
+/* ---- Collapsed / minimized state ---- */
+#lpn-woodpecker-overlay .wpk-collapsed {
+  background: var(--wpk-bg);
+  border: 1px solid var(--wpk-border);
+  border-radius: var(--wpk-radius);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s;
+  font-size: 13px;
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed:hover {
+  background: var(--wpk-bg-card);
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-icon {
+  font-size: 16px;
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-collapsed-progress {
+  font-weight: 600;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-collapsed-timer {
+  font-family: "SF Mono", "Consolas", "Monaco", monospace;
+  color: var(--wpk-text-muted);
+  font-size: 12px;
+}
+
+/* ---- Confirm dialog ---- */
+#lpn-woodpecker-overlay .wpk-confirm {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#lpn-woodpecker-overlay .wpk-confirm p {
+  font-size: 13px;
+  color: var(--wpk-text);
+  text-align: center;
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-btns {
+  display: flex;
+  gap: 8px;
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-btns button {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--wpk-font);
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-cancel {
+  background: var(--wpk-bg-card);
+  color: var(--wpk-text-muted);
+  border: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-cancel:hover {
+  background: var(--wpk-bg-hover);
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-confirm-end {
+  background: var(--wpk-danger);
+  color: #fff;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-confirm-end:hover {
+  background: #c0392b;
+}
+
+/* ---- Toast inside overlay ---- */
+#lpn-woodpecker-overlay .wpk-toast {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--wpk-accent);
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+#lpn-woodpecker-overlay .wpk-toast.visible {
+  opacity: 1;
+}

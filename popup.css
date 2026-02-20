@@ -301,6 +301,32 @@ select option {
   gap: 6px;
 }
 
+.btn-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--success);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 0;
+}
+
+.btn-play:hover:not(:disabled) {
+  color: #fff;
+  border-color: var(--success);
+  background: rgba(46, 204, 113, 0.15);
+}
+
+.btn-play:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .btn-copy-ids {
   display: flex;
   align-items: center;

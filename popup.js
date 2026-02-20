@@ -236,6 +236,20 @@ function renderPuzzleList(categories, catNames) {
     const headerRight = document.createElement("div");
     headerRight.className = "category-header-actions";
 
+    // Play button
+    const playBtn = document.createElement("button");
+    playBtn.className = "btn-play";
+    playBtn.title = puzzles.length > 0 ? "Start Woodpecker Training" : "No puzzles to train";
+    if (puzzles.length === 0) {
+      playBtn.disabled = true;
+    }
+    playBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+    playBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await startTrainingSession(catName, categories[catName] || []);
+    });
+    headerRight.appendChild(playBtn);
+
     // Copy IDs button
     const copyBtn = document.createElement("button");
     copyBtn.className = "btn-copy-ids";
@@ -294,7 +308,7 @@ function renderPuzzleList(categories, catNames) {
 
     // Toggle collapse (only on header left side + toggle icon, not on copy button)
     header.addEventListener("click", (e) => {
-      if (e.target.closest(".btn-copy-ids")) return;
+      if (e.target.closest(".btn-copy-ids") || e.target.closest(".btn-play")) return;
       const isOpen = toggle.classList.contains("open");
       if (isOpen) {
         toggle.classList.remove("open");
@@ -449,6 +463,55 @@ function showToast(message, type = "success") {
   toastTimeout = setTimeout(() => {
     toastEl.classList.add("hidden");
   }, 2500);
+}
+
+/* ============================================================
+ * Woodpecker Training — start session
+ * ============================================================ */
+function fisherYatesShuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+async function startTrainingSession(categoryName, puzzleIds) {
+  if (puzzleIds.length === 0) {
+    showToast("No puzzles to train.", "warn");
+    return;
+  }
+
+  // Check for existing session
+  const result = await browser.storage.local.get("trainingSession");
+  if (result.trainingSession) {
+    const confirmed = confirm("A training session is already in progress. Start a new one?");
+    if (!confirmed) return;
+  }
+
+  // Deduplicate IDs
+  const unique = [...new Set(puzzleIds)];
+  const queue = fisherYatesShuffle(unique.map((id) => `https://lichess.org/training/${id}`));
+
+  const session = {
+    category: categoryName,
+    queue: queue,
+    currentIndex: 0,
+    totalPuzzles: unique.length,
+    cycleCount: 1,
+    timerStartedAt: Date.now(),
+    isMinimized: false,
+    completedInCycle: 0,
+  };
+
+  await browser.storage.local.set({ trainingSession: session });
+
+  // Navigate active tab to first puzzle and close popup
+  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  if (tabs && tabs.length > 0) {
+    await browser.tabs.update(tabs[0].id, { url: queue[0] });
+  }
+  window.close();
 }
 
 /* ============================================================

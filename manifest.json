@@ -28,6 +28,13 @@
     "page": "options.html",
     "open_in_tab": true
   },
+  "content_scripts": [
+    {
+      "matches": ["*://*.lichess.org/training/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "lichess-puzzle-notes@extension",
