@@ -20,7 +20,7 @@ const emptyState = document.getElementById("empty-state");
 
 let currentPuzzleId = null; // extracted from current tab
 let currentTabId = null; // active tab ID, needed for DOM extraction
-let needsDomExtraction = false; // true when ID must come from page DOM
+let isTrainingPage = false; // true when the active tab is a Lichess training page
 let toastTimeout = null;
 
 /* ============================================================
@@ -33,11 +33,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 /* ============================================================
- * Detect current tab URL and extract puzzle ID
+ * Detect current tab and extract puzzle ID from DOM
  * ============================================================
- * With activeTab permission, tabs.query returns the url of the
- * active tab when the popup is opened (user clicked the action).
- * No "tabs" permission or "host_permissions" needed.
+ * 1. Gate: check the URL is a Lichess training page
+ * 2. Extract: inject a function into the page to read the puzzle ID from the DOM
+ * The puzzle ID is always obtained from the DOM (single source of truth).
  * ============================================================ */
 async function detectCurrentTab() {
   try {
@@ -48,24 +48,23 @@ async function detectCurrentTab() {
     }
     currentTabId = tabs[0].id;
     const url = tabs[0].url || "";
-    const resp = await browser.runtime.sendMessage({ type: "EXTRACT_PUZZLE_ID", url });
 
-    if (resp && resp.puzzleId === "NEED_DOM") {
-      // URL is a valid training page but ID must be extracted from the DOM
-      needsDomExtraction = true;
-      const domId = await extractPuzzleIdFromDOM();
-      if (domId) {
-        currentPuzzleId = domId;
-        showValidStatus(currentPuzzleId);
-      } else {
-        showInvalidStatus();
-      }
-    } else if (resp && resp.puzzleId) {
-      needsDomExtraction = false;
-      currentPuzzleId = resp.puzzleId;
+    // Gate: is this a Lichess training page?
+    const resp = await browser.runtime.sendMessage({ type: "IS_TRAINING_PAGE", url });
+    if (!resp || !resp.isTrainingPage) {
+      isTrainingPage = false;
+      showInvalidStatus();
+      return;
+    }
+
+    isTrainingPage = true;
+
+    // Extract puzzle ID from the DOM
+    const domId = await extractPuzzleIdFromDOM();
+    if (domId) {
+      currentPuzzleId = domId;
       showValidStatus(currentPuzzleId);
     } else {
-      needsDomExtraction = false;
       showInvalidStatus();
     }
   } catch (e) {
@@ -365,9 +364,9 @@ function bindEvents() {
  * Save handler
  * ============================================================ */
 async function handleSave() {
-  // Re-extract from DOM on each save click when the URL doesn't contain the ID,
-  // because puzzles change dynamically on /training and /training/mix pages.
-  if (needsDomExtraction) {
+  // Always re-extract from DOM on each save click, because puzzles
+  // change dynamically on Lichess training pages.
+  if (isTrainingPage) {
     const freshId = await extractPuzzleIdFromDOM();
     if (freshId) {
       currentPuzzleId = freshId;

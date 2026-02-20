@@ -133,55 +133,25 @@ async function removePuzzleFromCategory(category, puzzleId) {
 }
 
 /* ============================================================
- * URL validation & puzzle ID extraction
+ * URL gating — check if the page is a Lichess training page
  * ============================================================
- * Rules:
- *   - Hostname must be exactly "lichess.org"
- *   - Pathname must be /training/{id} (extract ID from URL), OR
- *     /training, /training/, /training/mix, /training/mix/ (extract ID from DOM)
- *   - {id} must be exactly 5 alphanumeric characters: [A-Za-z0-9]{5}
- *   - {id} must not be "mix"
- *   - Query strings and hash fragments are allowed but ignored
- *   - Protocol must be https
+ * Only checks hostname and pathname prefix. The actual puzzle ID
+ * is always extracted from the DOM via on-demand script injection.
  *
  * Returns:
- *   - The puzzle ID string if extractable and valid from the URL
- *   - "NEED_DOM" if the URL is a valid training page but the ID must come from the DOM
- *   - null if the URL is not a Lichess training page or the ID is invalid
+ *   - true  if the URL is a Lichess training page (eligible for DOM extraction)
+ *   - false otherwise
  * ============================================================ */
-const PUZZLE_ID_RE = /^[A-Za-z0-9]{5}$/;
-
-function extractPuzzleId(urlString) {
+function isLichessTrainingPage(urlString) {
   try {
     const url = new URL(urlString);
-    if (url.protocol !== "https:") return null;
-    if (url.hostname !== "lichess.org") return null;
-
-    // Normalise: strip trailing slash for easier matching
+    if (url.protocol !== "https:") return false;
+    if (url.hostname !== "lichess.org") return false;
+    // pathname must start with /training
     const pathname = url.pathname.replace(/\/+$/, "") || "/";
-
-    // Split pathname into segments: "/training/0j7EP" -> ["", "training", "0j7EP"]
-    const segments = pathname.split("/");
-    if (segments.length < 2 || segments[0] !== "" || segments[1] !== "training") return null;
-
-    // /training (no ID segment)
-    if (segments.length === 2) return "NEED_DOM";
-
-    const id = segments[2];
-
-    // /training/mix -> need DOM extraction
-    if (id === "mix") {
-      if (segments.length > 3) return null;
-      return "NEED_DOM";
-    }
-
-    // /training/{id} — must be exactly 3 segments with a valid 5-char alphanumeric ID
-    if (segments.length !== 3) return null;
-    if (!PUZZLE_ID_RE.test(id)) return null;
-
-    return id;
+    return pathname === "/training" || pathname.startsWith("/training/");
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -209,8 +179,8 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "REMOVE_PUZZLE":
         return await removePuzzleFromCategory(message.category, message.puzzleId);
 
-      case "EXTRACT_PUZZLE_ID":
-        return { puzzleId: extractPuzzleId(message.url) };
+      case "IS_TRAINING_PAGE":
+        return { isTrainingPage: isLichessTrainingPage(message.url) };
 
       default:
         return { ok: false, error: "Unknown message type." };
