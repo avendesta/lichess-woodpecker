@@ -423,6 +423,7 @@
       session.completedInCycle = 0;
       session.solvedInCycle = 0;
       session.skippedInCycle = 0;
+      session.timerStartedAt = Date.now(); // Reset timer for new cycle
     }
 
     try {
@@ -455,6 +456,7 @@
       session.completedInCycle = 0;
       session.solvedInCycle = 0;
       session.skippedInCycle = 0;
+      session.timerStartedAt = Date.now(); // Reset timer for new cycle
     }
 
     try {
