@@ -538,14 +538,15 @@
                                node.querySelector?.('.puzzle__feedback');
             
             if (feedbackDiv) {
-              const continueBtn = feedbackDiv.querySelector('.continue');
-              if (continueBtn) {
-                console.log('[lpn] Lichess Continue button detected, hooking into it');
+              // Check for either .continue or .vote button
+              const actionBtn = feedbackDiv.querySelector('.continue, .vote');
+              if (actionBtn) {
+                console.log('[lpn] Lichess action button detected, hooking into it');
                 // Add click listener to advance to next puzzle
-                continueBtn.addEventListener('click', async (e) => {
+                actionBtn.addEventListener('click', async (e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('[lpn] Lichess Continue clicked, advancing to next puzzle');
+                  console.log('[lpn] Lichess action button clicked, advancing to next puzzle');
                   await solvePuzzle();
                 });
               }
@@ -564,13 +565,14 @@
     // Also check immediately in case the button is already there
     const existingFeedback = document.querySelector('.puzzle__feedback.after');
     if (existingFeedback) {
-      const continueBtn = existingFeedback.querySelector('.continue');
-      if (continueBtn && !continueBtn.hasAttribute('data-lpn-handled')) {
-        continueBtn.setAttribute('data-lpn-handled', 'true');
-        continueBtn.addEventListener('click', async (e) => {
+      // Check for either .continue or .vote button
+      const actionBtn = existingFeedback.querySelector('.continue, .vote');
+      if (actionBtn && !actionBtn.hasAttribute('data-lpn-handled')) {
+        actionBtn.setAttribute('data-lpn-handled', 'true');
+        actionBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('[lpn] Lichess Continue clicked (existing), advancing to next puzzle');
+          console.log('[lpn] Lichess action button clicked (existing), advancing to next puzzle');
           await solvePuzzle();
         });
       }
