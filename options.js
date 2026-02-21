@@ -29,6 +29,14 @@ const deleteConfirm = document.getElementById("delete-confirm");
 const toastEl = document.getElementById("toast");
 const btnExport = document.getElementById("btn-export");
 
+// Stats section
+const statsSection = document.getElementById("stats-section");
+const statsEmpty = document.getElementById("stats-empty");
+const statsTableContainer = document.getElementById("stats-table-container");
+const statsTable = document.getElementById("stats-table");
+const statsTbody = document.getElementById("stats-tbody");
+const btnClearStats = document.getElementById("btn-clear-stats");
+
 let toastTimeout = null;
 let modalMode = null; // "create" | "rename"
 let modalRenameOld = null; // old name when renaming
@@ -51,6 +59,7 @@ const ICONS = {
 document.addEventListener("DOMContentLoaded", async () => {
   await refreshUI();
   bindEvents();
+  await loadStats();
 });
 
 /* ============================================================
@@ -163,6 +172,9 @@ function bindEvents() {
 
   // Export
   btnExport.addEventListener("click", handleExport);
+
+  // Stats
+  btnClearStats.addEventListener("click", clearStats);
 
   // Delegated clicks on main content (puzzle actions + category actions)
   mainContent.addEventListener("click", async (e) => {
@@ -392,4 +404,116 @@ async function handleExport() {
     console.error("[options] Export error:", e);
     showToast("Export failed.", "error");
   }
+}
+
+/* ============================================================
+ * Training Statistics Functions
+ * ============================================================ */
+function formatTime(ms) {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) {
+    return `Today, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (diffDays === 1) {
+    return `Yesterday, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+}
+
+function getSuccessRateClass(rate) {
+  if (rate >= 80) return 'high';
+  if (rate >= 60) return 'medium';
+  return 'low';
+}
+
+async function loadStats() {
+  try {
+    const result = await browser.storage.local.get("lichessNotes");
+    const data = result.lichessNotes || {};
+    const stats = data.meta?.trainingStats || [];
+    
+    if (stats.length === 0) {
+      statsEmpty.classList.remove('hidden');
+      statsTableContainer.classList.add('hidden');
+      return;
+    }
+    
+    statsEmpty.classList.add('hidden');
+    statsTableContainer.classList.remove('hidden');
+    
+    // Clear existing rows
+    statsTbody.innerHTML = '';
+    
+    // Add stats rows
+    stats.forEach(stat => {
+      const successRate = stat.totalPuzzles > 0 ? Math.round((stat.solved / stat.totalPuzzles) * 100) : 0;
+      const row = document.createElement('tr');
+      
+      row.innerHTML = `
+        <td class="category-name">${escapeHtml(stat.category)}</td>
+        <td class="time-taken">${formatTime(stat.timeTaken)}</td>
+        <td>${stat.totalPuzzles}</td>
+        <td class="solved">${stat.solved}</td>
+        <td class="skipped">${stat.skipped}</td>
+        <td class="success-rate ${getSuccessRateClass(successRate)}">${successRate}%</td>
+        <td class="completed-date">${formatDate(stat.completedAt)}</td>
+      `;
+      
+      statsTbody.appendChild(row);
+    });
+    
+  } catch (error) {
+    console.error('[options] Failed to load stats:', error);
+    showToast('Failed to load training statistics.', 'error');
+  }
+}
+
+async function clearStats() {
+  if (!confirm('Are you sure you want to clear all training statistics? This cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const result = await browser.storage.local.get("lichessNotes");
+    const data = result.lichessNotes || {};
+    
+    if (data.meta) {
+      data.meta.trainingStats = [];
+      await browser.storage.local.set({ lichessNotes: data });
+    }
+    
+    await loadStats();
+    showToast('Training statistics cleared.', 'success');
+    
+  } catch (error) {
+    console.error('[options] Failed to clear stats:', error);
+    showToast('Failed to clear training statistics.', 'error');
+  }
+}
+
+// HTML escaping helper
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
 }

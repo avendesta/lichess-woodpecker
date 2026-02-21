@@ -365,6 +365,107 @@ body {
   font-size: 14px;
 }
 
+/* ---- Training Stats ---- */
+.stats-section {
+  margin: 24px 0;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stats-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+.stats-table-container {
+  overflow-x: auto;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-table th {
+  background: var(--bg-hover);
+  font-weight: 600;
+  color: var(--text);
+  position: sticky;
+  top: 0;
+}
+
+.stats-table td {
+  color: var(--text);
+}
+
+.stats-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.stats-table .category-name {
+  font-weight: 500;
+}
+
+.stats-table .time-taken {
+  font-family: 'Courier New', monospace;
+}
+
+.stats-table .solved {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.stats-table .skipped {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.stats-table .success-rate {
+  font-weight: 500;
+}
+
+.stats-table .success-rate.high {
+  color: var(--success);
+}
+
+.stats-table .success-rate.medium {
+  color: var(--warning);
+}
+
+.stats-table .success-rate.low {
+  color: var(--danger);
+}
+
+.stats-table .completed-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ---- Utility ---- */
 .hidden {
   display: none !important;

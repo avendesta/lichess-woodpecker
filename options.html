@@ -28,6 +28,34 @@
       </div>
     </div>
 
+    <!-- Training Stats Section -->
+    <section class="stats-section" id="stats-section">
+      <div class="section-header">
+        <h2>Training Statistics</h2>
+        <button id="btn-clear-stats" class="btn btn-secondary">Clear Stats</button>
+      </div>
+      <div class="stats-content">
+        <p class="stats-empty" id="stats-empty">No completed training cycles yet.</p>
+        <div class="stats-table-container hidden" id="stats-table-container">
+          <table class="stats-table" id="stats-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Time Taken</th>
+                <th>Total Puzzles</th>
+                <th>Solved</th>
+                <th>Skipped</th>
+                <th>Success Rate</th>
+                <th>Completed</th>
+              </tr>
+            </thead>
+            <tbody id="stats-tbody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- Main content -->
     <main class="main" id="main-content">
       <p class="empty-state" id="empty-state">No categories yet — create one to start saving puzzles.</p>

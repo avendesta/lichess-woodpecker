@@ -235,6 +235,20 @@
     `;
     body.appendChild(progressWrap);
 
+    // Stats
+    const statsRow = document.createElement("div");
+    statsRow.className = "wpk-info-row";
+    const solved = session.solvedInCycle || 0;
+    const skipped = session.skippedInCycle || 0;
+    statsRow.innerHTML = `
+      <span class="wpk-info-label">Solved / Skipped</span>
+      <span class="wpk-info-value">
+        <span style="color: var(--wpk-accent)">${solved}</span> / 
+        <span style="color: var(--wpk-danger)">${skipped}</span>
+      </span>
+    `;
+    body.appendChild(statsRow);
+
     // Cycle
     const cycleRow = document.createElement("div");
     cycleRow.className = "wpk-info-row";
@@ -275,7 +289,7 @@
     const nextBtn = document.createElement("button");
     nextBtn.className = "wpk-btn-skip";
     nextBtn.textContent = "Skip \u25B6";
-    nextBtn.addEventListener("click", () => nextPuzzle());
+    nextBtn.addEventListener("click", () => skipPuzzle());
     actions.appendChild(nextBtn);
 
     body.appendChild(actions);
@@ -394,16 +408,21 @@
   /* ============================================================
    * Next puzzle
    * ============================================================ */
-  async function nextPuzzle() {
+  async function skipPuzzle() {
+    session.skippedInCycle = (session.skippedInCycle || 0) + 1;
     session.completedInCycle++;
     session.currentIndex++;
 
     if (session.currentIndex >= session.queue.length) {
-      // All puzzles seen — reshuffle for next cycle
+      // All puzzles seen — save cycle stats and start new cycle
+      await saveCycleStats();
+      
       session.queue = fisherYatesShuffle([...session.queue]);
       session.currentIndex = 0;
       session.cycleCount++;
       session.completedInCycle = 0;
+      session.solvedInCycle = 0;
+      session.skippedInCycle = 0;
     }
 
     try {
@@ -411,13 +430,83 @@
       window.location.href = session.queue[session.currentIndex];
     } catch (error) {
       if (error.message.includes('Extension context invalidated')) {
-        console.warn('[lpn] Extension context invalidated during nextPuzzle, navigating anyway');
+        console.warn('[lpn] Extension context invalidated during skipPuzzle, navigating anyway');
         window.location.href = session.queue[session.currentIndex];
       } else {
-        console.error('[lpn] Error saving session during nextPuzzle:', error);
+        console.error('[lpn] Error saving session during skipPuzzle:', error);
         // Still navigate even if save fails
         window.location.href = session.queue[session.currentIndex];
       }
+    }
+  }
+
+  async function solvePuzzle() {
+    session.solvedInCycle = (session.solvedInCycle || 0) + 1;
+    session.completedInCycle++;
+    session.currentIndex++;
+
+    if (session.currentIndex >= session.queue.length) {
+      // All puzzles seen — save cycle stats and start new cycle
+      await saveCycleStats();
+      
+      session.queue = fisherYatesShuffle([...session.queue]);
+      session.currentIndex = 0;
+      session.cycleCount++;
+      session.completedInCycle = 0;
+      session.solvedInCycle = 0;
+      session.skippedInCycle = 0;
+    }
+
+    try {
+      await saveSession(session);
+      window.location.href = session.queue[session.currentIndex];
+    } catch (error) {
+      if (error.message.includes('Extension context invalidated')) {
+        console.warn('[lpn] Extension context invalidated during solvePuzzle, navigating anyway');
+        window.location.href = session.queue[session.currentIndex];
+      } else {
+        console.error('[lpn] Error saving session during solvePuzzle:', error);
+        // Still navigate even if save fails
+        window.location.href = session.queue[session.currentIndex];
+      }
+    }
+  }
+
+  /* ============================================================
+   * Save cycle stats
+   * ============================================================ */
+  async function saveCycleStats() {
+    try {
+      const allData = await getAllData();
+      const stats = {
+        category: session.category,
+        timeTaken: Date.now() - session.timerStartedAt,
+        totalPuzzles: session.totalPuzzles,
+        solved: session.solvedInCycle || 0,
+        skipped: session.skippedInCycle || 0,
+        completedAt: Date.now()
+      };
+      
+      // Initialize stats array if it doesn't exist
+      if (!allData.meta) allData.meta = {};
+      if (!allData.meta.trainingStats) allData.meta.trainingStats = [];
+      
+      // Add new stats to the beginning of the array
+      allData.meta.trainingStats.unshift(stats);
+      
+      // Keep only last 50 stats to prevent storage bloat
+      if (allData.meta.trainingStats.length > 50) {
+        allData.meta.trainingStats = allData.meta.trainingStats.slice(0, 50);
+      }
+      
+      // Save updated data
+      await new Promise((resolve) => {
+        storage.local.set({ lichessNotes: allData }, resolve);
+      });
+      
+      console.log('[lpn] Cycle stats saved:', stats);
+    } catch (error) {
+      console.warn('[lpn] Failed to save cycle stats:', error);
     }
   }
 
@@ -455,7 +544,7 @@
                   e.preventDefault();
                   e.stopPropagation();
                   console.log('[lpn] Lichess Continue clicked, advancing to next puzzle');
-                  await nextPuzzle();
+                  await solvePuzzle();
                 });
               }
             }
@@ -480,7 +569,7 @@
           e.preventDefault();
           e.stopPropagation();
           console.log('[lpn] Lichess Continue clicked (existing), advancing to next puzzle');
-          await nextPuzzle();
+          await solvePuzzle();
         });
       }
     }
