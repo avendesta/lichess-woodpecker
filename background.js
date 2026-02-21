@@ -1,5 +1,5 @@
 /**
- * Background service worker for Lichess Puzzle Bookmark.
+ * Background service worker for Lichess Woodpecker.
  * Handles storage operations via message passing from popup/options pages.
  * Uses browser.storage.local for persistence.
  */

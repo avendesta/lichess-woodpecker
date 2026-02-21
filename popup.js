@@ -1,5 +1,5 @@
 /**
- * Lichess Puzzle Bookmark — Popup UI Logic
+ * Lichess Woodpecker — Popup UI Logic
  * Handles save flow, category selection, quick puzzle view, and search.
  */
 

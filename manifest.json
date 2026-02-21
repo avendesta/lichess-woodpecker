@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Lichess Puzzle Bookmark",
-  "version": "1.0.0",
-  "description": "Save Lichess training puzzle IDs into user-defined categories for easy access and organization.",
+  "name": "Lichess Woodpecker",
+  "version": "1.0.1",
+  "description": "Woodpecker training mode for Lichess puzzles. Save puzzles into categories and practice them in randomized order with timer and progress tracking.",
   "permissions": [
     "storage",
     "activeTab",
@@ -37,7 +37,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "lichess-puzzle-notes@extension",
+      "id": "lichess-puzzle-bookmark@extension",
       "strict_min_version": "109.0"
     }
   }
