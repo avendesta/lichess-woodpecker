@@ -273,8 +273,8 @@
     actions.appendChild(quickSaveBtn);
 
     const nextBtn = document.createElement("button");
-    nextBtn.className = "wpk-btn-next";
-    nextBtn.textContent = "Next \u25B6";
+    nextBtn.className = "wpk-btn-skip";
+    nextBtn.textContent = "Skip \u25B6";
     nextBtn.addEventListener("click", () => nextPuzzle());
     actions.appendChild(nextBtn);
 
