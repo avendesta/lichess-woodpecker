@@ -30,23 +30,62 @@
   }
 
   function saveSession(session) {
-    return new Promise((resolve) => {
-      storage.local.set({ [STORAGE_KEY]: session }, resolve);
+    return new Promise((resolve, reject) => {
+      try {
+        storage.local.set({ [STORAGE_KEY]: session }, () => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+      } catch (error) {
+        // Handle extension context invalidation
+        if (error.message.includes('Extension context invalidated')) {
+          console.warn('[lpn] Extension context invalidated, session not saved');
+          resolve(); // Resolve anyway to prevent unhandled promise rejection
+        } else {
+          reject(error);
+        }
+      }
     });
   }
 
   function clearSession() {
     return new Promise((resolve) => {
-      storage.local.remove(STORAGE_KEY, resolve);
+      try {
+        storage.local.remove(STORAGE_KEY, () => {
+          if (chrome.runtime.lastError) {
+            console.warn('[lpn] Error clearing session:', chrome.runtime.lastError.message);
+          }
+          resolve(); // Always resolve to prevent unhandled promise rejection
+        });
+      } catch (error) {
+        if (error.message.includes('Extension context invalidated')) {
+          console.warn('[lpn] Extension context invalidated, session not cleared');
+        } else {
+          console.warn('[lpn] Error clearing session:', error.message);
+        }
+        resolve(); // Always resolve to prevent unhandled promise rejection
+      }
     });
   }
 
   function getAllData() {
     return new Promise((resolve) => {
-      storage.local.get("lichessNotes", (result) => {
-        const d = result.lichessNotes || { categories: {} };
-        resolve(d);
-      });
+      try {
+        storage.local.get("lichessNotes", (result) => {
+          const d = result.lichessNotes || { categories: {} };
+          resolve(d);
+        });
+      } catch (error) {
+        if (error.message.includes('Extension context invalidated')) {
+          console.warn('[lpn] Extension context invalidated, using empty data');
+        } else {
+          console.warn('[lpn] Error getting data:', error.message);
+        }
+        resolve({ categories: {} }); // Return empty data to prevent crashes
+      }
     });
   }
 
@@ -367,8 +406,19 @@
       session.completedInCycle = 0;
     }
 
-    await saveSession(session);
-    window.location.href = session.queue[session.currentIndex];
+    try {
+      await saveSession(session);
+      window.location.href = session.queue[session.currentIndex];
+    } catch (error) {
+      if (error.message.includes('Extension context invalidated')) {
+        console.warn('[lpn] Extension context invalidated during nextPuzzle, navigating anyway');
+        window.location.href = session.queue[session.currentIndex];
+      } else {
+        console.error('[lpn] Error saving session during nextPuzzle:', error);
+        // Still navigate even if save fails
+        window.location.href = session.queue[session.currentIndex];
+      }
+    }
   }
 
   /* ============================================================
