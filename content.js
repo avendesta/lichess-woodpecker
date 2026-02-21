@@ -113,6 +113,7 @@
     }
 
     startTimer();
+    setupLichessContinueDetection();
   }
 
   /* ---- Collapsed view ---- */
@@ -380,6 +381,59 @@
       const elapsed = formatTime(getElapsed());
       els.forEach((el) => { el.textContent = elapsed; });
     }, 1000);
+  }
+
+  /* ============================================================
+   * Lichess Continue Training Detection
+   * ============================================================ */
+  function setupLichessContinueDetection() {
+    // Use MutationObserver to detect when the feedback div appears
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if this is the puzzle feedback container
+            const feedbackDiv = node.classList?.contains('puzzle__feedback') ? node : 
+                               node.querySelector?.('.puzzle__feedback');
+            
+            if (feedbackDiv) {
+              const continueBtn = feedbackDiv.querySelector('.continue');
+              if (continueBtn) {
+                console.log('[lpn] Lichess Continue button detected, hooking into it');
+                // Add click listener to advance to next puzzle
+                continueBtn.addEventListener('click', async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('[lpn] Lichess Continue clicked, advancing to next puzzle');
+                  await nextPuzzle();
+                });
+              }
+            }
+          }
+        });
+      });
+    });
+
+    // Start observing the body for changes
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Also check immediately in case the button is already there
+    const existingFeedback = document.querySelector('.puzzle__feedback.after');
+    if (existingFeedback) {
+      const continueBtn = existingFeedback.querySelector('.continue');
+      if (continueBtn && !continueBtn.hasAttribute('data-lpn-handled')) {
+        continueBtn.setAttribute('data-lpn-handled', 'true');
+        continueBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('[lpn] Lichess Continue clicked (existing), advancing to next puzzle');
+          await nextPuzzle();
+        });
+      }
+    }
   }
 
   /* ============================================================
