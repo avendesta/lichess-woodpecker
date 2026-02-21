@@ -60,9 +60,9 @@
   }
   console.log("[lpn] Training session found:", session.category, session.completedInCycle + "/" + session.totalPuzzles);
 
-  // Validate category still exists
+  // Validate category still exists (skip for "All Categories" virtual category)
   const allData = await getAllData();
-  if (!allData.categories[session.category]) {
+  if (session.category !== "All Categories" && !allData.categories[session.category]) {
     console.warn("[lpn] Category no longer exists, ending session.");
     await clearSession();
     return;

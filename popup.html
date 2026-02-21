@@ -16,6 +16,11 @@
         </svg>
         <h1>Lichess Woodpecker</h1>
       </div>
+      <button id="btn-train-all" class="icon-btn" title="Train all categories">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        </svg>
+      </button>
       <button id="btn-options" class="icon-btn" title="Open full manager">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
@@ -31,7 +36,7 @@
       </div>
       <div id="status-invalid" class="status-card status-invalid hidden">
         <span class="status-icon">⚠</span>
-        <span>Open a Lichess training puzzle:<br><code>https://lichess.org/training/{id}</code></span>
+        <span>Open a Lichess training puzzle:<br><code>https://lichess.org/training</code></span>
       </div>
     </section>
 
@@ -46,7 +51,7 @@
       </div>
       <div class="form-group hidden" id="new-category-group">
         <label for="new-category-input">New category name</label>
-        <input type="text" id="new-category-input" placeholder="e.g. Queen Attacks" maxlength="60" />
+        <input type="text" id="new-category-input" placeholder="e.g. Missed Mate" maxlength="60" />
       </div>
       <button id="btn-save" class="btn-primary" disabled>Save Puzzle</button>
     </section>

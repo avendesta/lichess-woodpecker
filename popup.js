@@ -13,6 +13,7 @@ const categorySelect = document.getElementById("category-select");
 const newCategoryGroup = document.getElementById("new-category-group");
 const newCategoryInput = document.getElementById("new-category-input");
 const btnSave = document.getElementById("btn-save");
+const btnTrainAll = document.getElementById("btn-train-all");
 const btnOptions = document.getElementById("btn-options");
 const toastEl = document.getElementById("toast");
 const categoriesList = document.getElementById("categories-list");
@@ -243,7 +244,7 @@ function renderPuzzleList(categories, catNames) {
     if (puzzles.length === 0) {
       playBtn.disabled = true;
     }
-    playBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+    playBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`;
     playBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       await startTrainingSession(catName, categories[catName] || []);
@@ -341,6 +342,18 @@ function bindEvents() {
 
   // Save button
   btnSave.addEventListener("click", handleSave);
+
+  // Train All button
+  btnTrainAll.addEventListener("click", async () => {
+    const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
+    const categories = data.categories || {};
+    const allPuzzleIds = Object.values(categories).flat();
+    if (allPuzzleIds.length === 0) {
+      showToast("No puzzles saved yet.", "warn");
+      return;
+    }
+    await startTrainingSession("All Categories", allPuzzleIds);
+  });
 
   // Options page
   btnOptions.addEventListener("click", () => {
@@ -507,14 +520,15 @@ async function startTrainingSession(categoryName, puzzleIds) {
   await browser.storage.local.set({ trainingSession: session });
 
   // Navigate active tab to first puzzle and close popup
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+  const tabs = await new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, resolve);
+  });
   if (tabs && tabs.length > 0) {
-    chrome.tabs.update(tabs[0].id, { url: queue[0] }, () => {
-      window.close();
+    await new Promise((resolve) => {
+      chrome.tabs.update(tabs[0].id, { url: queue[0] }, resolve);
     });
-  } else {
-    window.close();
   }
+  window.close();
 }
 
 /* ============================================================
