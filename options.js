@@ -35,6 +35,7 @@ const statsEmpty = document.getElementById("stats-empty");
 const statsTableContainer = document.getElementById("stats-table-container");
 const statsTable = document.getElementById("stats-table");
 const statsTbody = document.getElementById("stats-tbody");
+const btnRefreshStats = document.getElementById("btn-refresh-stats");
 const btnClearStats = document.getElementById("btn-clear-stats");
 
 let toastTimeout = null;
@@ -114,15 +115,18 @@ async function refreshUI() {
  * ============================================================ */
 function buildCategoryCard(catName, puzzles, totalCount) {
   const card = document.createElement("div");
-  card.className = "category-card";
+  card.className = "category-card collapsed";
 
   // Header
   const header = document.createElement("div");
   header.className = "category-card-header";
   header.innerHTML = `
     <div class="category-card-title">
-      <h3>${escapeHtml(catName)}</h3>
-      <span class="count">${totalCount} puzzle${totalCount !== 1 ? "s" : ""}</span>
+      <div class="category-card-title-left">
+        <span class="accordion-arrow">▶</span>
+        <h3>${escapeHtml(catName)}</h3>
+        <span class="count">${totalCount} puzzle${totalCount !== 1 ? "s" : ""}</span>
+      </div>
     </div>
     <div class="category-card-actions">
       <button class="btn-icon btn-rename" title="Rename category" data-cat="${escapeHtml(catName)}">${ICONS.rename}</button>
@@ -130,6 +134,16 @@ function buildCategoryCard(catName, puzzles, totalCount) {
     </div>
   `;
   card.appendChild(header);
+
+  // Add click handler to header for accordion toggle
+  header.addEventListener("click", (e) => {
+    // Don't toggle if clicking on action buttons
+    if (e.target.closest(".category-card-actions")) return;
+    
+    card.classList.toggle("collapsed");
+    const arrow = header.querySelector(".accordion-arrow");
+    arrow.textContent = card.classList.contains("collapsed") ? "▶" : "▼";
+  });
 
   // Body
   const body = document.createElement("div");
@@ -174,6 +188,7 @@ function bindEvents() {
   btnExport.addEventListener("click", handleExport);
 
   // Stats
+  btnRefreshStats.addEventListener("click", () => loadStats(true));
   btnClearStats.addEventListener("click", clearStats);
 
   // Delegated clicks on main content (puzzle actions + category actions)
@@ -446,7 +461,7 @@ function getSuccessRateClass(rate) {
   return 'low';
 }
 
-async function loadStats() {
+async function loadStats(showToastMessage = false) {
   try {
     const result = await browser.storage.local.get("lichessNotes");
     const data = result.lichessNotes || {};
@@ -482,9 +497,15 @@ async function loadStats() {
       statsTbody.appendChild(row);
     });
     
+    if (showToastMessage) {
+      showToast('Statistics refreshed.', 'success');
+    }
+    
   } catch (error) {
     console.error('[options] Failed to load stats:', error);
-    showToast('Failed to load training statistics.', 'error');
+    if (showToastMessage) {
+      showToast('Failed to load training statistics.', 'error');
+    }
   }
 }
 

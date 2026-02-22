@@ -52,11 +52,14 @@
   }
 
   function clearSession() {
+    console.log('[lpn] Clearing training session');
     return new Promise((resolve) => {
       try {
         storage.local.remove(STORAGE_KEY, () => {
           if (chrome.runtime.lastError) {
             console.warn('[lpn] Error clearing session:', chrome.runtime.lastError.message);
+          } else {
+            console.log('[lpn] Session cleared successfully');
           }
           resolve(); // Always resolve to prevent unhandled promise rejection
         });
@@ -93,8 +96,9 @@
    * Read session — bail if none
    * ============================================================ */
   let session = await getSession();
+  console.log("[lpn] Session check result:", session);
   if (!session) {
-    console.log("[lpn] No active training session.");
+    console.log("[lpn] No active training session - not showing overlay.");
     return;
   }
   console.log("[lpn] Training session found:", session.category, session.completedInCycle + "/" + session.totalPuzzles);
