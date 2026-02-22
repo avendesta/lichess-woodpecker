@@ -1,10 +1,10 @@
-# Privacy Policy — Lichess Puzzle Bookmark
+# Privacy Policy — Lichess Woodpecker
 
 **Last updated: February 13, 2026**
 
 ## Overview
 
-Lichess Puzzle Bookmark is a browser extension that lets users save Lichess training puzzle IDs into user-defined categories for personal organization. This policy explains what data the extension handles and how.
+Lichess Woodpecker is a browser extension that lets users save Lichess training puzzle IDs into user-defined categories for personal organization. This policy explains what data the extension handles and how.
 
 ## Data Collection
 

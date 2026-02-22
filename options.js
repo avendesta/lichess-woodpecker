@@ -1,5 +1,5 @@
 /**
- * Lichess Puzzle Bookmark — Options/Manager Page Logic
+ * Lichess Woodpecker — Options/Manager Page Logic
  * Full category and puzzle management: create, rename, delete categories;
  * open, copy, remove puzzles; search/filter across all categories.
  */

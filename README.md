@@ -1,4 +1,4 @@
-# Lichess Puzzle Bookmark
+# Lichess Woodpecker
 
 A cross-browser Manifest V3 extension for saving Lichess training puzzle IDs into user-defined categories.
 
