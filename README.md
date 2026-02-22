@@ -15,7 +15,7 @@ A cross-browser Manifest V3 extension for saving Lichess training puzzle IDs int
 ## Project Structure
 
 ```
-lichess-note/
+lichess-woodpecker/
 ├── manifest.json            # MV3 manifest (Chrome + Firefox compatible)
 ├── browser-polyfill.js      # Minimal polyfill: wraps chrome.* as browser.*
 ├── background.js            # Service worker: storage ops, URL parsing, message handler
@@ -47,14 +47,14 @@ lichess-note/
 1. Open `chrome://extensions/`
 2. Enable **Developer mode** (toggle in top-right)
 3. Click **Load unpacked**
-4. Select the `lichess-note` folder (the one containing `manifest.json`)
+4. Select the `lichess-woodpecker` folder (the one containing `manifest.json`)
 5. The extension icon appears in the toolbar
 
 ### Firefox
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on…**
-3. Select `manifest.json` inside the `lichess-note` folder
+3. Select `manifest.json` inside the `lichess-woodpecker` folder
 4. The extension icon appears in the toolbar
 
 > **Note:** Firefox temporary add-ons are removed on restart. For persistent installation, package as `.xpi` and sign via [AMO](https://addons.mozilla.org/).
@@ -130,7 +130,7 @@ No `tabs` permission or `host_permissions` are requested.
 The full privacy policy is available at:
 
 - **In this repo:** [PRIVACY_POLICY.md](./PRIVACY_POLICY.md)
-- **Hosted (for Web Store):** [docs/privacy-policy.html](./docs/privacy-policy.html) — deploy via GitHub Pages at `https://<username>.github.io/lichess-note/privacy-policy.html`
+- **Hosted (for Web Store):** [docs/privacy-policy.html](./docs/privacy-policy.html) — deploy via GitHub Pages at `https://<username>.github.io/lichess-woodpecker/privacy-policy.html`
 
 **Summary:** The extension stores only puzzle IDs and category names locally on your device. It makes zero network requests, collects no personal data, and shares nothing with third parties.
 

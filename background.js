@@ -41,7 +41,7 @@ async function getAllData() {
       return result.lichessNotes;
     }
   } catch (e) {
-    console.warn("[lichess-note] Storage read error, resetting:", e);
+    console.warn("[lichess-woodpecker] Storage read error, resetting:", e);
   }
   // Empty or corrupted — initialise with defaults
   await browser.storage.local.set({ lichessNotes: structuredClone(DEFAULT_DATA) });
