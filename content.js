@@ -205,8 +205,10 @@
       render();
     });
 
-    titlebar.querySelector(".wpk-btn-close").addEventListener("click", () => {
-      showConfirmEnd(panel);
+    titlebar.querySelector(".wpk-btn-close").addEventListener("click", async () => {
+      if (timerInterval) clearInterval(timerInterval);
+      await clearSession();
+      overlay.remove();
     });
 
     // Body
@@ -309,37 +311,7 @@
     overlay.appendChild(panel);
   }
 
-  /* ============================================================
-   * Confirm end session
-   * ============================================================ */
-  function showConfirmEnd(panel) {
-    const body = panel.querySelector(".wpk-body");
-    if (!body) return;
-    body.innerHTML = "";
-
-    const confirm = document.createElement("div");
-    confirm.className = "wpk-confirm";
-    confirm.innerHTML = `
-      <p>End training session?</p>
-      <div class="wpk-confirm-btns">
-        <button class="wpk-btn-cancel">Cancel</button>
-        <button class="wpk-btn-confirm-end">End Session</button>
-      </div>
-    `;
-
-    confirm.querySelector(".wpk-btn-cancel").addEventListener("click", () => {
-      render();
-    });
-
-    confirm.querySelector(".wpk-btn-confirm-end").addEventListener("click", async () => {
-      if (timerInterval) clearInterval(timerInterval);
-      await clearSession();
-      overlay.remove();
-    });
-
-    body.appendChild(confirm);
-  }
-
+  
   
   /* ============================================================
    * Next puzzle

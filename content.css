@@ -262,57 +262,6 @@
   font-size: 12px;
 }
 
-/* ---- Confirm dialog ---- */
-#lpn-woodpecker-overlay .wpk-confirm {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-#lpn-woodpecker-overlay .wpk-confirm p {
-  font-size: 13px;
-  color: var(--wpk-text);
-  text-align: center;
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-btns {
-  display: flex;
-  gap: 8px;
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-btns button {
-  flex: 1;
-  padding: 7px 0;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--wpk-font);
-  cursor: pointer;
-  border: none;
-  transition: background 0.15s;
-}
-
-#lpn-woodpecker-overlay .wpk-btn-cancel {
-  background: var(--wpk-bg-card);
-  color: var(--wpk-text-muted);
-  border: 1px solid var(--wpk-border);
-}
-
-#lpn-woodpecker-overlay .wpk-btn-cancel:hover {
-  background: var(--wpk-bg-hover);
-  color: var(--wpk-text);
-}
-
-#lpn-woodpecker-overlay .wpk-btn-confirm-end {
-  background: var(--wpk-danger);
-  color: #fff;
-}
-
-#lpn-woodpecker-overlay .wpk-btn-confirm-end:hover {
-  background: #c0392b;
-}
-
 /* ---- Toast inside overlay ---- */
 #lpn-woodpecker-overlay .wpk-toast {
   position: absolute;
