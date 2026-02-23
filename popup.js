@@ -251,24 +251,40 @@ function renderPuzzleList(categories, catNames) {
     });
     headerRight.appendChild(playBtn);
 
-    // Copy IDs button
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "btn-copy-ids";
-    copyBtn.title = "Copy IDs";
-    copyBtn.dataset.cat = catName;
-    if (puzzles.length === 0) {
-      copyBtn.disabled = true;
-      copyBtn.title = "No IDs to copy";
+    // Plus button to add current puzzle
+    const plusBtn = document.createElement("button");
+    plusBtn.className = "btn-plus";
+    plusBtn.title = currentPuzzleId ? "Add current puzzle to this category" : "No puzzle on current page";
+    plusBtn.dataset.cat = catName;
+    if (!currentPuzzleId) {
+      plusBtn.disabled = true;
     }
-    copyBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy IDs`;
-    copyBtn.addEventListener("click", async (e) => {
+    plusBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+    plusBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
-      const ids = categories[catName] || [];
-      if (ids.length === 0) return;
-      await copyToClipboard(JSON.stringify(ids));
-      showToast("Copied IDs", "success");
+      if (!currentPuzzleId) {
+        showToast("No puzzle on current page", "error");
+        return;
+      }
+      
+      const resp = await browser.runtime.sendMessage({
+        type: "ADD_PUZZLE",
+        category: catName,
+        puzzleId: currentPuzzleId,
+      });
+
+      if (resp.ok) {
+        if (resp.duplicate) {
+          showToast(`Puzzle already in ${catName}`, "warn");
+        } else {
+          showToast(`Added ${currentPuzzleId} to ${catName}`, "success");
+          await refreshUI();
+        }
+      } else {
+        showToast(resp.error || "Error adding puzzle", "error");
+      }
     });
-    headerRight.appendChild(copyBtn);
+    headerRight.appendChild(plusBtn);
 
     const toggle = document.createElement("span");
     toggle.className = "category-toggle";
@@ -307,9 +323,9 @@ function renderPuzzleList(categories, catNames) {
     block.appendChild(list);
     categoriesList.appendChild(block);
 
-    // Toggle collapse (only on header left side + toggle icon, not on copy button)
+    // Toggle collapse (only on header left side + toggle icon, not on plus button)
     header.addEventListener("click", (e) => {
-      if (e.target.closest(".btn-copy-ids") || e.target.closest(".btn-play")) return;
+      if (e.target.closest(".btn-plus") || e.target.closest(".btn-play")) return;
       const isOpen = toggle.classList.contains("open");
       if (isOpen) {
         toggle.classList.remove("open");
@@ -531,24 +547,6 @@ async function startTrainingSession(categoryName, puzzleIds) {
   window.close();
 }
 
-/* ============================================================
- * Clipboard helper
- * ============================================================ */
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Fallback for older browsers / restricted contexts
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-  }
-}
 
 /* ============================================================
  * HTML escaping
