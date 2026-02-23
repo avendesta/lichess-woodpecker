@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "Lichess Woodpecker",
+  "version": "1.0.2",
+  "description": "Woodpecker training mode for Lichess puzzles. Save puzzles into categories and practice them in randomized order with timer and progress tracking.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.lichess.org/training/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "lichess-woodpecker@extension",
+      "strict_min_version": "109.0"
+    }
+  }
+}

@@ -13,7 +13,7 @@ const RELEASE_DIR = path.join(ROOT, "release");
 
 // Files and directories to include in the ZIP (relative to repo root).
 const INCLUDE = [
-  "manifest.json",
+  "manifest-firefox.json",
   "background.js",
   "browser-polyfill.js",
   "popup.html",
@@ -53,7 +53,7 @@ function main() {
     fs.mkdirSync(RELEASE_DIR, { recursive: true });
   }
 
-  const zipName = `lichess-woodpecker-v${version}-firefox.zip`;
+  const zipName = `lichess-woodpecker-v${version}.xpi`;
   const zipPath = path.join(RELEASE_DIR, zipName);
 
   try {
@@ -77,7 +77,7 @@ function main() {
     console.log(`Files included (${INCLUDE.length}):`);
     INCLUDE.forEach((f) => console.log(`  ✓ ${f}`));
     console.log(`\nOutput: release/${zipName} (${(stats.size / 1024).toFixed(1)} KB)`);
-    console.log("Done! Upload this ZIP to Firefox Add-ons or use for temporary installation.");
+    console.log("Done! Upload this XPI to Firefox Add-ons or use for temporary installation.");
 
   } catch (error) {
     console.error("System ZIP failed, falling back to manual ZIP creation...");
@@ -96,7 +96,12 @@ function main() {
     // Copy files to temp directory
     INCLUDE.forEach(file => {
       const srcPath = path.join(ROOT, file);
-      const destPath = path.join(tempDir, file);
+      let destPath = path.join(tempDir, file);
+      
+      // Rename manifest-firefox.json to manifest.json
+      if (file === "manifest-firefox.json") {
+        destPath = path.join(tempDir, "manifest.json");
+      }
       
       // Create directory if needed
       const destDir = path.dirname(destPath);
@@ -108,7 +113,7 @@ function main() {
     });
     
     console.log(`\nFiles copied to: ${tempDir}`);
-    console.log("Please manually ZIP this directory and upload to Firefox.");
+    console.log("Please manually ZIP this directory as .xpi and upload to Firefox.");
     console.log("Or install temporarily by loading the directory in Firefox about:debugging");
   }
 }
