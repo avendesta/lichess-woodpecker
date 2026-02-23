@@ -282,13 +282,14 @@
     const actions = document.createElement("div");
     actions.className = "wpk-actions";
 
-    const quickSaveBtn = document.createElement("button");
-    quickSaveBtn.className = "wpk-btn-quicksave";
-    quickSaveBtn.innerHTML = "\u{1F4BE} Quick Save";
-    quickSaveBtn.addEventListener("click", () => {
-      toggleQuickSave(body);
+    const settingsBtn = document.createElement("button");
+    settingsBtn.className = "wpk-btn-settings";
+    settingsBtn.innerHTML = "⚙️";
+    settingsBtn.title = "Open options";
+    settingsBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "OPEN_OPTIONS_PAGE" });
     });
-    actions.appendChild(quickSaveBtn);
+    actions.appendChild(settingsBtn);
 
     const nextBtn = document.createElement("button");
     nextBtn.className = "wpk-btn-skip";
@@ -339,76 +340,7 @@
     body.appendChild(confirm);
   }
 
-  /* ============================================================
-   * Quick save dropdown
-   * ============================================================ */
-  async function toggleQuickSave(body) {
-    const existing = body.querySelector(".wpk-quicksave-dropdown");
-    if (existing) {
-      existing.remove();
-      return;
-    }
-
-    const data = await getAllData();
-    const catNames = Object.keys(data.categories).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" })
-    );
-
-    if (catNames.length === 0) {
-      showOverlayToast("No categories available");
-      return;
-    }
-
-    // Extract current puzzle ID from the page URL
-    const currentId = extractCurrentPuzzleId();
-    if (!currentId) {
-      showOverlayToast("No puzzle ID found");
-      return;
-    }
-
-    const dropdown = document.createElement("div");
-    dropdown.className = "wpk-quicksave-dropdown";
-
-    catNames.forEach((name) => {
-      const btn = document.createElement("button");
-      btn.textContent = name;
-      btn.addEventListener("click", async () => {
-        // Save via storage directly (add to category if not duplicate)
-        const freshData = await getAllData();
-        const cat = freshData.categories[name];
-        if (!cat) {
-          showOverlayToast("Category not found");
-          dropdown.remove();
-          return;
-        }
-        if (cat.includes(currentId)) {
-          showOverlayToast("Already saved");
-          dropdown.remove();
-          return;
-        }
-        cat.push(currentId);
-        freshData.meta = freshData.meta || {};
-        freshData.meta.updatedAt = Date.now();
-        await new Promise((resolve) => {
-          storage.local.set({ lichessNotes: freshData }, resolve);
-        });
-        showOverlayToast(`Saved to ${name}`);
-        dropdown.remove();
-      });
-      dropdown.appendChild(btn);
-    });
-
-    body.appendChild(dropdown);
-  }
-
-  /* ============================================================
-   * Extract current puzzle ID from page URL
-   * ============================================================ */
-  function extractCurrentPuzzleId() {
-    const match = window.location.pathname.match(/^\/training\/([A-Za-z0-9]{5})$/);
-    return match ? match[1] : null;
-  }
-
+  
   /* ============================================================
    * Next puzzle
    * ============================================================ */

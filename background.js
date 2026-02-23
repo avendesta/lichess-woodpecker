@@ -182,6 +182,10 @@ browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "IS_TRAINING_PAGE":
         return { isTrainingPage: isLichessTrainingPage(message.url) };
 
+      case "OPEN_OPTIONS_PAGE":
+        browser.runtime.openOptionsPage();
+        return { ok: true };
+
       default:
         return { ok: false, error: "Unknown message type." };
     }

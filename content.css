@@ -189,30 +189,33 @@
   margin-top: 2px;
 }
 
-#lpn-woodpecker-overlay .wpk-btn-quicksave,
-#lpn-woodpecker-overlay .wpk-btn-skip {
-  flex: 1;
-  padding: 8px 0;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--wpk-font);
-  cursor: pointer;
-  border: none;
-  transition: background 0.15s, opacity 0.15s;
-  text-align: center;
-}
-
-#lpn-woodpecker-overlay .wpk-btn-quicksave {
+#lpn-woodpecker-overlay .wpk-btn-settings {
+  padding: 8px;
   background: var(--wpk-bg-card);
   color: var(--wpk-text-muted);
   border: 1px solid var(--wpk-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  margin-right: 8px;
 }
 
-#lpn-woodpecker-overlay .wpk-btn-quicksave:hover {
+#lpn-woodpecker-overlay .wpk-btn-settings:hover {
   color: var(--wpk-text);
   border-color: var(--wpk-text-muted);
   background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
 }
 
 #lpn-woodpecker-overlay .wpk-btn-skip {
@@ -222,34 +225,6 @@
 
 #lpn-woodpecker-overlay .wpk-btn-skip:hover {
   background: #c0392b;
-}
-
-/* ---- Quick save dropdown ---- */
-#lpn-woodpecker-overlay .wpk-quicksave-dropdown {
-  background: var(--wpk-bg-card);
-  border: 1px solid var(--wpk-border);
-  border-radius: 6px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-#lpn-woodpecker-overlay .wpk-quicksave-dropdown button {
-  background: none;
-  border: none;
-  color: var(--wpk-text);
-  font-size: 12px;
-  font-family: var(--wpk-font);
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s;
-}
-
-#lpn-woodpecker-overlay .wpk-quicksave-dropdown button:hover {
-  background: var(--wpk-bg-hover);
 }
 
 /* ---- Collapsed / minimized state ---- */
