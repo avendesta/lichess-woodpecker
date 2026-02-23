@@ -207,6 +207,7 @@
 
     titlebar.querySelector(".wpk-btn-close").addEventListener("click", async () => {
       if (timerInterval) clearInterval(timerInterval);
+      // Clear the session completely when user closes overlay
       await clearSession();
       overlay.remove();
     });

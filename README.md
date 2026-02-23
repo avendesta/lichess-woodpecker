@@ -1,14 +1,14 @@
 # Lichess Woodpecker 🐦
 
-A powerful Chrome extension for Lichess puzzle training with Woodpecker-style repetition practice. Save puzzles into categories, train them in randomized order, and track your performance with detailed statistics.
+A powerful browser extension for Lichess puzzle training with Woodpecker-style repetition practice. Save puzzles into categories, train them in randomized order, and track your performance with detailed statistics.
 
 ## ✨ Features
 
 ### 🎯 Puzzle Management
-- **One-click save** — Save any Lichess training puzzle to custom categories
-- **Smart categories** — Create, rename, and delete unlimited categories
+- **Quick save** — Save any Lichess training puzzle to custom categories via popup plus buttons
+- **Smart categories** — Create, rename, and delete unlimited categories in options page
 - **Duplicate prevention** — Never save the same puzzle twice
-- **Quick actions** — Open, copy, or remove puzzles with one click
+- **Quick actions** — Open or remove puzzles with one click
 - **Global search** — Find puzzles instantly across all categories
 
 ### 🏋️ Woodpecker Training Mode
@@ -17,20 +17,22 @@ A powerful Chrome extension for Lichess puzzle training with Woodpecker-style re
 - **Smart navigation** — Skip difficult puzzles or advance after solving
 - **Cycle management** — Automatic reshuffling when all puzzles are completed
 - **Train All** — Practice across all categories simultaneously
+- **Settings access** — Quick settings button in training overlay
 
 ### 📊 Performance Analytics
-- **Solved vs Skipped** — Track which puzzles you solved vs skipped
+- **Solved vs Skipped** — Track which puzzles you solved vs skipped during training
 - **Success rates** — Color-coded performance indicators (green/yellow/red)
 - **Time tracking** — Monitor completion time for each training cycle
 - **Historical data** — View performance trends across categories
-- **Statistics table** — Comprehensive breakdown in the options page
+- **Statistics table** — Comprehensive breakdown with refresh functionality
+- **Collapsible categories** — Organized view with default collapsed state
 
 ### 🎨 User Experience
 - **Dark theme** — Easy on the eyes during long training sessions
-- **Responsive overlay** — Non-intrusive training interface
-- **Quick save dropdown** — Save puzzles without leaving the training page
-- **Minimizable interface** — Focus on puzzles, not the UI
-- **Cross-browser** — Works on Chrome and Firefox
+- **Responsive overlay** — Non-intrusive training interface with minimize/close controls
+- **Streamlined popup** — Focused on viewing and quick actions
+- **Direct session control** — Close button immediately ends training session
+- **Cross-browser** — Works on Chrome (Manifest V3) and Firefox (Manifest V2)
 
 ## 🚀 Quick Start
 
@@ -44,45 +46,49 @@ A powerful Chrome extension for Lichess puzzle training with Woodpecker-style re
 5. The woodpecker icon appears in your toolbar
 
 #### Firefox
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click **Load Temporary Add-on…**
-3. Select `manifest.json` inside the `lichess-woodpecker` folder
+1. Download the `lichess-woodpecker-v1.1.0.xpi` file from the release directory
+2. Open `about:debugging#/runtime/this-firefox`
+3. Click **Load Temporary Add-on…**
+4. Select the `.xpi` file
 
 ### Basic Usage
 
 1. **Save Puzzles**
-   - Visit any Lichess training page (`https://lichess.org/training/{id}`)
-   - Click the woodpecker icon
-   - Select or create a category
-   - Click "Save Puzzle"
+   - Visit any Lichess training page (`https://lichess.org/training/`)
+   - Click the woodpecker icon to open the popup
+   - Click the **+** button next to any category to save the current puzzle
+   - Or manage categories in the options page for bulk operations
 
 2. **Start Training**
    - Open the extension popup
    - Click the lightning bolt icon next to any category
-   - Or click "Train All" to practice across all categories
-   - Use the overlay to track progress and navigate puzzles
+   - Or click the ⚡ "Train All" button to practice across all categories
+   - Use the training overlay to track progress and navigate puzzles
 
-3. **Track Performance**
-   - Complete full training cycles
-   - View statistics in the options page
-   - Monitor your improvement over time
+3. **Manage & Track**
+   - Open options page (⚙️ button) for full category management
+   - View training statistics with refresh functionality
+   - Use the settings button in training overlay for quick access
 
 ## 📖 Detailed Features
 
 ### Training Interface
 - **Progress bar** — Visual indication of cycle completion
-- **Timer display** — Track session duration
+- **Timer display** — Track session duration with reset functionality
 - **Cycle counter** — See how many rounds you've completed
-- **Solved/Skipped stats** — Real-time performance metrics
-- **Skip button** — Move past difficult puzzles (counts as skipped)
-- **Auto-advance** — Automatically proceed after solving puzzles
+- **Solved/Skipped stats** — Real-time performance metrics during training
+- **Skip button** — Move past difficult puzzles (red, counts as skipped)
+- **Settings button** — Quick access to options page during training
+- **Direct close** — Close button immediately ends training session
+- **Minimize/restore** — Collapse overlay to focus on puzzles
 
 ### Statistics Dashboard
-- **Category breakdown** — Performance by puzzle category
+- **Category breakdown** — Performance by puzzle category with collapsible view
 - **Time analysis** — How long each training cycle takes
 - **Success rates** — Percentage of puzzles solved vs skipped
 - **Completion dates** — When each training cycle was finished
-- **Historical tracking** — Up to 50 recent training sessions
+- **Historical tracking** — Recent training sessions with refresh button
+- **Clear statistics** — Reset functionality for fresh start
 
 ### Smart Features
 - **URL validation** — Only works on official Lichess training pages
@@ -90,6 +96,7 @@ A powerful Chrome extension for Lichess puzzle training with Woodpecker-style re
 - **Session persistence** — Training survives page refreshes
 - **Extension context handling** — Graceful error recovery
 - **Storage optimization** — Limits statistics to prevent bloat
+- **Plus button saving** — Quick puzzle addition without popup forms
 
 ## 🛠️ Technical Details
 
@@ -110,20 +117,23 @@ All data is stored locally in your browser:
 
 ### Browser Compatibility
 - ✅ Chrome (Manifest V3)
-- ✅ Firefox (with polyfill)
+- ✅ Firefox (Manifest V2 with dedicated XPI package)
 - ✅ Edge (Chromium-based)
 
 ## 📁 Project Structure
 
 ```
 lichess-woodpecker/
-├── manifest.json           # Extension configuration
+├── manifest.json           # Chrome extension configuration (Manifest V3)
+├── manifest-firefox.json    # Firefox extension configuration (Manifest V2)
 ├── background.js           # Service worker for storage and messaging
 ├── content.js             # Training overlay and puzzle detection
-├── popup.html/js/css      # Extension popup interface
+├── popup.html/js/css      # Extension popup interface (streamlined)
 ├── options.html/js/css    # Full manager and statistics page
 ├── icons/                 # Extension icons (16/48/128px)
 └── scripts/               # Build and packaging utilities
+    ├── package.js          # Chrome packaging script
+    └── package-firefox.js  # Firefox packaging script
 ```
 
 ## 🔧 Development
@@ -131,16 +141,20 @@ lichess-woodpecker/
 ### Building
 ```bash
 # Package for Chrome Web Store
-npm run package
-
-# Or package directly with Node
 node scripts/package.js
+
+# Package for Firefox
+node scripts/package-firefox.js
 
 # Generate icons (development)
 npm run generate-icons
 ```
 
-The packaging script creates a ZIP file ready for Chrome Web Store submission in the `release/` directory with all necessary files included.
+The packaging scripts create:
+- `lichess-puzzle-saver-v1.1.0.zip` for Chrome Web Store
+- `lichess-woodpecker-v1.1.0.xpi` for Firefox distribution
+
+Both packages include all necessary files and are ready for submission to their respective stores.
 
 ### Local Testing
 1. Load as unpacked extension
