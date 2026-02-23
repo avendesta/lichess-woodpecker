@@ -9,10 +9,6 @@
 const statusValid = document.getElementById("status-valid");
 const statusInvalid = document.getElementById("status-invalid");
 const puzzleIdDisplay = document.getElementById("puzzle-id-display");
-const categorySelect = document.getElementById("category-select");
-const newCategoryGroup = document.getElementById("new-category-group");
-const newCategoryInput = document.getElementById("new-category-input");
-const btnSave = document.getElementById("btn-save");
 const btnTrainAll = document.getElementById("btn-train-all");
 const btnOptions = document.getElementById("btn-options");
 const toastEl = document.getElementById("toast");
@@ -147,14 +143,11 @@ function showValidStatus(id) {
   puzzleIdDisplay.textContent = id;
   statusValid.classList.remove("hidden");
   statusInvalid.classList.add("hidden");
-  document.getElementById("save-section").classList.remove("hidden");
 }
 
 function showInvalidStatus() {
   statusValid.classList.add("hidden");
   statusInvalid.classList.remove("hidden");
-  // Hide save section when no valid puzzle
-  document.getElementById("save-section").classList.add("hidden");
 }
 
 /* ============================================================
@@ -165,43 +158,8 @@ async function refreshUI() {
   const categories = data.categories || {};
   const catNames = Object.keys(categories).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-  // Rebuild category dropdown
-  rebuildCategoryDropdown(catNames);
-
   // Rebuild puzzle list view
   renderPuzzleList(categories, catNames);
-}
-
-function rebuildCategoryDropdown(catNames) {
-  // Preserve current selection if possible
-  const prev = categorySelect.value;
-  categorySelect.innerHTML = "";
-
-  const defaultOpt = document.createElement("option");
-  defaultOpt.value = "";
-  defaultOpt.disabled = true;
-  defaultOpt.selected = true;
-  defaultOpt.textContent = "Select category…";
-  categorySelect.appendChild(defaultOpt);
-
-  catNames.forEach((name) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    categorySelect.appendChild(opt);
-  });
-
-  const newOpt = document.createElement("option");
-  newOpt.value = "__new__";
-  newOpt.textContent = "+ New category…";
-  categorySelect.appendChild(newOpt);
-
-  // Restore previous selection
-  if (prev && prev !== "__new__" && catNames.includes(prev)) {
-    categorySelect.value = prev;
-  }
-
-  updateSaveButton();
 }
 
 /* ============================================================
@@ -342,23 +300,7 @@ function renderPuzzleList(categories, catNames) {
  * Event bindings
  * ============================================================ */
 function bindEvents() {
-  // Category dropdown change
-  categorySelect.addEventListener("change", () => {
-    if (categorySelect.value === "__new__") {
-      newCategoryGroup.classList.remove("hidden");
-      newCategoryInput.focus();
-    } else {
-      newCategoryGroup.classList.add("hidden");
-    }
-    updateSaveButton();
-  });
-
-  // New category input — enable save when typing
-  newCategoryInput.addEventListener("input", updateSaveButton);
-
-  // Save button
-  btnSave.addEventListener("click", handleSave);
-
+  
   // Train All button
   btnTrainAll.addEventListener("click", async () => {
     const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
@@ -403,84 +345,6 @@ function bindEvents() {
   });
 }
 
-/* ============================================================
- * Save handler
- * ============================================================ */
-async function handleSave() {
-  // Always re-extract from DOM on each save click, because puzzles
-  // change dynamically on Lichess training pages.
-  if (isTrainingPage) {
-    const freshId = await extractPuzzleIdFromDOM();
-    if (freshId) {
-      currentPuzzleId = freshId;
-      showValidStatus(currentPuzzleId);
-    } else {
-      showInvalidStatus();
-      showToast("No puzzle found on page.", "error");
-      return;
-    }
-  }
-
-  if (!currentPuzzleId) return;
-
-  let category = categorySelect.value;
-
-  // Creating a new category inline
-  if (category === "__new__") {
-    const newName = newCategoryInput.value.trim();
-    if (!newName) {
-      showToast("Enter a category name.", "warn");
-      newCategoryInput.focus();
-      return;
-    }
-    const createResp = await browser.runtime.sendMessage({ type: "CREATE_CATEGORY", name: newName });
-    if (!createResp.ok) {
-      showToast(createResp.error, "error");
-      return;
-    }
-    category = newName;
-    newCategoryInput.value = "";
-    newCategoryGroup.classList.add("hidden");
-  }
-
-  if (!category || category === "__new__") {
-    showToast("Select a category first.", "warn");
-    return;
-  }
-
-  const resp = await browser.runtime.sendMessage({
-    type: "ADD_PUZZLE",
-    category,
-    puzzleId: currentPuzzleId,
-  });
-
-  if (resp.ok) {
-    showToast(`Saved ${currentPuzzleId} to ${category}`, "success");
-    await refreshUI();
-    // Re-select the category
-    categorySelect.value = category;
-  } else if (resp.duplicate) {
-    showToast("Already saved.", "warn");
-  } else {
-    showToast(resp.error || "Error saving puzzle.", "error");
-  }
-}
-
-/* ============================================================
- * Update save button enabled state
- * ============================================================ */
-function updateSaveButton() {
-  if (!currentPuzzleId) {
-    btnSave.disabled = true;
-    return;
-  }
-  const val = categorySelect.value;
-  if (val === "__new__") {
-    btnSave.disabled = !newCategoryInput.value.trim();
-  } else {
-    btnSave.disabled = !val;
-  }
-}
 
 /* ============================================================
  * Toast notification
