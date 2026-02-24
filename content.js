@@ -276,6 +276,8 @@
       session.timerStartedAt = Date.now();
       session.currentIndex = 0;
       session.completedInCycle = 0;
+      session.solvedInCycle = 0;
+      session.skippedInCycle = 0;
       await saveSession(session);
       window.location.href = session.queue[0];
     });
