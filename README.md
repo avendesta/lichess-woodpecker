@@ -1,5 +1,7 @@
 # Lichess Woodpecker 🐦
 
+NOW AVAILABLE IN [GOOGLE WEB STORE](https://chromewebstore.google.com/detail/lichess-woodpecker/hiplnejlfcaelegbajdonblkcechfced)
+
 A powerful browser extension for Lichess puzzle training with Woodpecker-style repetition practice. Save puzzles into categories, train them in randomized order, and track your performance with detailed statistics.
 
 ## ✨ Features
