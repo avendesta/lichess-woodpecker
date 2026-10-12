@@ -104,11 +104,9 @@ function leastUsedColor(data) {
  * so a rename or delete can safely move or drop it. The key is removed when none are left.
  */
 async function updateParked(change) {
-  const { pausedCycles } = await browser.storage.local.get("pausedCycles");
-  if (!pausedCycles) return;
-  change(pausedCycles);
-  if (Object.keys(pausedCycles).length) await browser.storage.local.set({ pausedCycles });
-  else await browser.storage.local.remove("pausedCycles");
+  const parked = await readParked();
+  change(parked);
+  await writeParked(parked);
 }
 
 const MAX_NAME_LENGTH = 60;
@@ -392,14 +390,20 @@ function checkCycle(c, { paused }) {
   return { ok: true };
 }
 
+/** The parked map as stored, or an empty one when nothing (or something that is not a plain map) is stored. */
 async function readParked() {
   const { pausedCycles } = await browser.storage.local.get("pausedCycles");
   return pausedCycles && typeof pausedCycles === "object" && !Array.isArray(pausedCycles) ? pausedCycles : {};
 }
-async function writeParked(parked) {
-  if (Object.keys(parked).length) await browser.storage.local.set({ pausedCycles: parked });
-  else await browser.storage.local.remove("pausedCycles"); // the key goes away when none are left
+/** Store the parked map (the key goes away when none are left), together with `extra` keys in the same write. */
+async function writeParked(parked, extra = {}) {
+  if (Object.keys(parked).length) await browser.storage.local.set({ ...extra, pausedCycles: parked });
+  else {
+    if (Object.keys(extra).length) await browser.storage.local.set(extra);
+    await browser.storage.local.remove("pausedCycles");
+  }
 }
+const validCategoryKey = (c) => typeof c === "string" && c !== "" && c !== "__proto__";
 
 async function parkCycle(cycle) {
   const check = checkCycle(cycle, { paused: true });
@@ -411,7 +415,7 @@ async function parkCycle(cycle) {
 }
 
 async function unparkCycle(category) {
-  if (typeof category !== "string" || !category || category === "__proto__") return { ok: false, error: "Invalid category." };
+  if (!validCategoryKey(category)) return { ok: false, error: "Invalid category." };
   const parked = await readParked();
   delete parked[category];
   await writeParked(parked);
@@ -423,12 +427,11 @@ async function startSession({ session, park, unpark }) {
   const check = checkCycle(session, { paused: false });
   if (!check.ok) return check;
   if (park) { const c = checkCycle(park, { paused: true }); if (!c.ok) return c; }
-  if (unpark != null && (typeof unpark !== "string" || !unpark || unpark === "__proto__")) return { ok: false, error: "Invalid category." };
+  if (unpark != null && !validCategoryKey(unpark)) return { ok: false, error: "Invalid category." };
   const parked = await readParked();
   if (park) parked[park.category] = park;
   if (unpark) delete parked[unpark];
-  if (Object.keys(parked).length) await browser.storage.local.set({ trainingSession: session, pausedCycles: parked });
-  else { await browser.storage.local.set({ trainingSession: session }); await browser.storage.local.remove("pausedCycles"); }
+  await writeParked(parked, { trainingSession: session });
   return { ok: true };
 }
 

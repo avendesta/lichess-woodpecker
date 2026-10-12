@@ -2139,3 +2139,30 @@ test("import skips what it cannot use and reports it, instead of failing or poll
   expect(cats.Padded).toEqual(["pad11"]); // whitespace trimmed
   expect(await extPage.evaluate(() => ({}).pro11 === undefined && Object.getPrototypeOf({}) === Object.prototype)).toBe(true);
 });
+
+// ---- one reader and one writer for the parked map: every path treats a malformed stored value the same way ----
+
+test("a malformed pausedCycles value is never carried along: rename, delete, park, unpark and START_SESSION all end with a plain map or none", async ({ send, getStorage, seedStorage }) => {
+  const plain = (v) => v === undefined || (v !== null && typeof v === "object" && !Array.isArray(v));
+  const session = { ownerTabId: 4, category: "0", queue: ["https://lichess.org/training/abc12"], currentIndex: 0, totalPuzzles: 1, completedInCycle: 0, cycleCount: 1, isMinimized: false, timerStartedAt: 1_500_000 };
+  const actions = {
+    rename: () => send({ type: "RENAME_CATEGORY", oldName: "0", newName: "zero" }),
+    delete: () => send({ type: "DELETE_CATEGORY", name: "0" }),
+    park: () => send({ type: "PARK_CYCLE", cycle: cyc("0") }),
+    unpark: () => send({ type: "UNPARK_CYCLE", category: "0" }),
+    start: () => send({ type: "START_SESSION", session, park: null, unpark: "0" }),
+  };
+  for (const bad of ["oops", ["x"], 5, true]) {
+    for (const [name, act] of Object.entries(actions)) {
+      await seedStorage({ lichessNotes: { categories: { 0: ["abc12"] }, meta: { version: 1, updatedAt: 0 } }, pausedCycles: bad });
+      const r = await act();
+      expect(r.ok, `${name} with pausedCycles ${JSON.stringify(bad)}: ${JSON.stringify(r)}`).toBe(true);
+      const after = await getStorage("pausedCycles");
+      expect(plain(after), `${name} with pausedCycles ${JSON.stringify(bad)} left ${JSON.stringify(after)}`).toBe(true);
+    }
+  }
+  // and a proper map still keeps what it holds through a rename of another category
+  await seedStorage({ lichessNotes: { categories: { A: ["abc12"], B: ["abc12"] }, meta: { version: 1, updatedAt: 0 } }, pausedCycles: { A: cyc("A") } });
+  expect((await send({ type: "RENAME_CATEGORY", oldName: "B", newName: "Bx" })).ok).toBe(true);
+  expect(Object.keys(await getStorage("pausedCycles"))).toEqual(["A"]);
+});
