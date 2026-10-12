@@ -1,0 +1,13 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "userDataDir": ".playwright-profile",
+    "launchOptions": {
+      "headless": false,
+      "args": [
+        "--disable-extensions-except=.",
+        "--load-extension=."
+      ]
+    }
+  }
+}

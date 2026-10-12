@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Lichess Woodpecker</title>
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --text: #eaeaea;
+      --muted: #8892a4;
+      --accent: #e94560;
+      --border: #2a3a5c;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 4px;
+      color: var(--accent);
+    }
+    .updated {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 17px;
+      margin-top: 28px;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    p {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    strong { color: var(--text); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-weight: 600;
+    }
+    td { color: var(--muted); }
+    code {
+      background: rgba(255,255,255,0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul { margin: 8px 0 12px 20px; font-size: 14px; color: var(--muted); }
+    li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: October 11, 2026</p>
+
+    <h2>Overview</h2>
+    <p>Lichess Woodpecker is a browser extension that lets users save Lichess training puzzle IDs into user-defined categories for personal organization, and train them in repeated, randomized cycles with an overlay on Lichess puzzle pages. This policy explains what data the extension handles and how.</p>
+
+    <h2>Data Collection</h2>
+    <p><strong>We do not collect any personal data.</strong> The extension does not gather, transmit, or store any personally identifiable information (PII) such as names, email addresses, browsing history, or analytics.</p>
+
+    <h2>Data Storage</h2>
+    <p>The extension stores the following data <strong>locally on your device</strong> using the browser's built-in extension storage (<code>storage.local</code>):</p>
+    <ul>
+      <li><strong>Puzzle IDs</strong> — Short alphanumeric identifiers (e.g., <code>0j7EP</code>) extracted from Lichess training puzzle pages.</li>
+      <li><strong>Category names and colours</strong> — User-created labels used to organize saved puzzle IDs, and the colour you or the extension gave each.</li>
+      <li><strong>Training results</strong> — For each finished training cycle: the category, how long it took, how many puzzles it had, how many you got correct, incorrect or skipped, and when it finished.</li>
+      <li><strong>Training in progress</strong> — The shuffled list of puzzle IDs of a cycle you are training, your position in it, its timer and counts, and any cycles you have paused.</li>
+      <li><strong>Settings</strong> — Where you dragged the training overlay, and whether it moves on by itself after a correct puzzle.</li>
+      <li><strong>Metadata</strong> — A schema version number and a last-updated timestamp (not linked to any user identity).</li>
+    </ul>
+    <p>All data remains entirely on your device. No data is synced to any cloud service, remote server, or third party.</p>
+    <p><strong>Export and import.</strong> The settings page can save your categories and puzzle IDs to a file you choose, and read such a file back. Both happen in your browser, only when you ask, and the file goes only where you put it.</p>
+
+    <h2>Network Requests</h2>
+    <p><strong>The extension makes zero network requests.</strong> It does not communicate with any external server, API, or analytics service. The only network activity occurs when you ask your browser to go to Lichess: when you click "Open" on a saved puzzle, "Open Lichess puzzles", or train (which moves your tab on to the next puzzle). That is a standard browser navigation to <code>https://lichess.org/training/…</code>, not a request made by the extension.</p>
+
+    <h2>What the Extension Reads on Lichess</h2>
+    <p>On <code>https://lichess.org/training/</code> pages the extension runs a content script that draws the training overlay and reads the puzzle page's own markup: the puzzle's ID and whether you solved it cleanly, so it can count your results. It does not read your Lichess account, cookies or any other site's data, and nothing it reads is sent anywhere.</p>
+
+    <h2>Data Sharing</h2>
+    <p><strong>We do not sell, share, or transfer any user data to third parties.</strong> No data leaves your device.</p>
+
+    <h2>Data Retention</h2>
+    <p>Saved data persists in your browser's local extension storage until:</p>
+    <ul>
+      <li>You manually remove individual puzzles or categories within the extension, or</li>
+      <li>You uninstall the extension (which clears all extension storage), or</li>
+      <li>You clear your browser's extension data.</li>
+    </ul>
+
+    <h2>Permissions Justification</h2>
+    <table>
+      <thead>
+        <tr><th>Permission</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>storage</code></td><td>Store puzzle IDs and categories locally</td></tr>
+        <tr><td><code>activeTab</code></td><td>Grants temporary access to the active tab when the user clicks the extension icon, so the popup can read the puzzle ID from that page. The extension does not read the tab's address.</td></tr>
+        <tr><td><code>scripting</code></td><td>Runs one small function bundled with the extension in the active tab to read the puzzle ID from the page's markup (the ID is not always in the address, e.g. on <code>/training</code>). Works with <code>activeTab</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>No <code>tabs</code> permission or <code>host_permissions</code> are requested. The only standing access is the content script on <code>https://lichess.org/training/</code> pages described above, which exists to show the training overlay on puzzle pages. The extension loads and runs no remote code.</p>
+
+    <h2>Changes to This Policy</h2>
+    <p>If this policy is updated, the "Last updated" date at the top will be revised. Continued use of the extension after changes constitutes acceptance.</p>
+
+    <h2>Contact</h2>
+    <p>For questions or concerns about this privacy policy, contact:<br>
+    <strong>Email:</strong> <a href="mailto:avendesta2020@gmail.com">avendesta2020@gmail.com</a></p>
+  </div>
+</body>
+</html>

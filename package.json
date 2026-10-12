@@ -1,0 +1,18 @@
+{
+  "name": "lichess-puzzle-notes",
+  "version": "1.2.1",
+  "private": true,
+  "description": "Browser extension to save Lichess training puzzle IDs into user-defined categories.",
+  "scripts": {
+    "check": "node scripts/check.js",
+    "check:firefox": "node scripts/package-firefox.js && web-ext lint -s release/firefox",
+    "test": "playwright test",
+    "package": "node scripts/package.js",
+    "package:firefox": "node scripts/package-firefox.js",
+    "generate-icons": "node generate-icons.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "web-ext": "10.7.0"
+  }
+}

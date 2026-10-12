@@ -1,0 +1,35 @@
+# Release builds
+/release/
+*.zip
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build caches
+dist/
+.cache/
+
+# IDE
+.*surf*/
+.idea/
+.vscode/
+
+# Test output
+test-results/
+playwright-report/
+.playwright-profile/
+
+# Playwright MCP output
+.playwright-mcp/
+
+# Review gate: which code the reviewer last saw (local to this checkout)
+.claude/.review-state.json
+.claude/.review-pending.json

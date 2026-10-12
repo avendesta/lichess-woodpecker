@@ -1,0 +1,867 @@
+/* ============================================================
+ * Lichess Woodpecker — Woodpecker Training Overlay
+ * Injected on lichess.org/training/* pages
+ * ============================================================ */
+
+#lpn-woodpecker-overlay {
+  --wpk-bg: #1a1a2e;
+  --wpk-bg-card: #16213e;
+  --wpk-bg-hover: #1f2b47;
+  --wpk-accent: #2ecc71;
+  --wpk-accent-solid: #1e8449; /* button background; white text on it passes contrast */
+  --wpk-accent-solid-hover: #196f3d;
+  --wpk-text: #eaeaea;
+  --wpk-text-muted: #8892a4;
+  --wpk-text-dim: #5a6478;
+  --wpk-border: #2a3a5c;
+  --wpk-danger: #ee5a4a;
+  --wpk-danger-solid: #c0392b;
+  --wpk-danger-solid-hover: #a93226;
+  --wpk-warning: #f39c12;
+  --wpk-accent-tint: rgba(46, 204, 113, 0.14); /* the green Play button */
+  --wpk-accent-border: rgba(46, 204, 113, 0.6);
+  --wpk-fill-bg: #2759bd; /* the filled primary button (Repeat); white text on it passes contrast in both looks */
+  --wpk-fill-bg-hover: #2f66d0;
+  --wpk-fill-border: rgba(130, 175, 255, 0.45);
+  --wpk-fill-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 65%);
+  --wpk-fx-spark: #ffd76a; /* the celebration's sparkles and rain, tuned for a dark panel */
+  --wpk-fx-rain: rgba(140, 180, 255, 0.5);
+  --wpk-skip-bg: #2b4068; /* muted blue; pale text on it passes contrast in both looks, so there is no light override */
+  --wpk-skip-bg-hover: #345083;
+  --wpk-skip-text: #cfe0ff;
+  --wpk-skip-border: #4a679a;
+  --wpk-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --wpk-shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --wpk-radius: 8px;
+  --wpk-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  position: fixed;
+  bottom: 20px;
+  left: 20px; /* default corner; content.js overrides left/bottom once the user drags it */
+  z-index: 99999;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  color: var(--wpk-text);
+  line-height: 1.4;
+}
+
+/* ---- Light look: set by content.js when the Lichess page itself is light ---- */
+#lpn-woodpecker-overlay.wpk-light {
+  --wpk-bg: #ffffff;
+  --wpk-bg-card: #f1f3f7;
+  --wpk-bg-hover: #e6e9f0;
+  --wpk-accent: #1b7f45;
+  --wpk-accent-solid: #1b7f45;
+  --wpk-accent-solid-hover: #166a3a;
+  --wpk-text: #1a1a2e;
+  --wpk-text-muted: #556070;
+  --wpk-text-dim: #7a8493;
+  --wpk-border: #cdd2dc;
+  --wpk-danger: #c0392b;
+  --wpk-danger-solid: #c0392b;
+  --wpk-danger-solid-hover: #a93226;
+  --wpk-warning: #9a5b00;
+  --wpk-fx-spark: #c98f0a; /* and for a light one */
+  --wpk-fx-rain: rgba(60, 100, 175, 0.5);
+  --wpk-accent-tint: rgba(27, 127, 69, 0.12);
+  --wpk-accent-border: rgba(27, 127, 69, 0.6);
+  --wpk-shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.18);
+  --wpk-shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.16);
+  color-scheme: light;
+}
+
+/* ---- Keyboard focus (Lichess strips outlines from bare controls) ---- */
+#lpn-woodpecker-overlay button:focus-visible,
+#lpn-woodpecker-overlay input:focus-visible,
+#lpn-woodpecker-overlay .wpk-collapsed:focus-visible {
+  outline: 2px solid var(--wpk-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Expanded panel ---- */
+#lpn-woodpecker-overlay .wpk-panel {
+  background: var(--wpk-bg);
+  border: 1px solid var(--wpk-border);
+  border-radius: var(--wpk-radius);
+  width: 300px;
+  box-shadow: var(--wpk-shadow-lg);
+  overflow: hidden;
+  position: relative; /* the restart question is laid over the bottom of the panel */
+}
+
+/* ---- Title bar ---- */
+#lpn-woodpecker-overlay .wpk-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--wpk-bg-card);
+  border-bottom: 1px solid var(--wpk-border);
+  user-select: none;
+  cursor: move;
+  touch-action: none;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* The logo on a light rounded tile (its navy base would vanish on a dark panel); a hairline ring keeps the tile visible on a light one. */
+#lpn-woodpecker-overlay .wpk-logo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)), #f4f1e8; /* a highlight over the solid ivory */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  vertical-align: middle;
+}
+
+#lpn-woodpecker-overlay .wpk-logo svg {
+  display: block;
+  width: auto;
+  height: 17px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-left .wpk-icon {
+  font-size: 16px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns {
+  display: flex;
+  gap: 4px;
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns button {
+  background: none;
+  border: 1px solid var(--wpk-border);
+  color: var(--wpk-text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 0;
+  font-family: var(--wpk-font);
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns button:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+  background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-titlebar-btns .wpk-btn-close:hover {
+  color: var(--wpk-danger);
+  border-color: var(--wpk-danger);
+}
+
+/* ---- Body ---- */
+#lpn-woodpecker-overlay .wpk-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- Info rows ---- */
+#lpn-woodpecker-overlay .wpk-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+#lpn-woodpecker-overlay .wpk-info-label {
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-info-value {
+  color: var(--wpk-text);
+  font-weight: 600;
+}
+
+/* ---- Progress bar ---- */
+#lpn-woodpecker-overlay .wpk-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#lpn-woodpecker-overlay .wpk-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--wpk-bg-card);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-progress-fill {
+  height: 100%;
+  background: var(--wpk-accent);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+#lpn-woodpecker-overlay .wpk-progress-text {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+/* ---- Timer row ---- */
+#lpn-woodpecker-overlay .wpk-timer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#lpn-woodpecker-overlay .wpk-timer-display {
+  font-family: "SF Mono", "Consolas", "Monaco", monospace;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--wpk-text);
+  letter-spacing: 1px;
+}
+
+/* Every control is 34px tall. Pause and Settings are icon-only squares; Restart carries its label. */
+#lpn-woodpecker-overlay .wpk-btn-restart,
+#lpn-woodpecker-overlay .wpk-btn-exit,
+#lpn-woodpecker-overlay .wpk-btn-pause {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  background: none;
+  border: 1px solid var(--wpk-border);
+  font-family: var(--wpk-font);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-pause {
+  width: 34px;
+  padding: 0;
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-restart,
+#lpn-woodpecker-overlay .wpk-btn-exit {
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-restart:hover,
+#lpn-woodpecker-overlay .wpk-btn-exit:hover,
+#lpn-woodpecker-overlay .wpk-btn-pause:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+  background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-restart:active,
+#lpn-woodpecker-overlay .wpk-btn-exit:active,
+#lpn-woodpecker-overlay .wpk-btn-pause:active {
+  background: var(--wpk-bg-card);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-pause svg {
+  width: 18px;
+  height: 18px;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-exit {
+  background: var(--wpk-bg); /* solid, the panel's own colour, so its text is measured against what is really behind it */
+}
+
+#lpn-woodpecker-overlay .wpk-btn-restart svg,
+#lpn-woodpecker-overlay .wpk-btn-exit svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* ---- Action buttons ---- */
+#lpn-woodpecker-overlay .wpk-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* Row two: Settings on the left, Restart and Skip together on the right */
+#lpn-woodpecker-overlay .wpk-controls {
+  justify-content: space-between;
+  align-items: center;
+}
+
+#lpn-woodpecker-overlay .wpk-controls-right {
+  display: flex;
+  gap: 8px;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--wpk-bg-card);
+  color: var(--wpk-text-muted);
+  border: 1px solid var(--wpk-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-settings svg {
+  width: 16px;
+  height: 16px;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-settings:hover {
+  color: var(--wpk-text);
+  border-color: var(--wpk-text-muted);
+  background: var(--wpk-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--wpk-skip-bg);
+  color: var(--wpk-skip-text);
+  border: 1px solid var(--wpk-skip-border);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip:hover {
+  background: var(--wpk-skip-bg-hover);
+}
+
+/* ---- The Restart question: laid over the bottom of the panel, so nothing else moves ---- */
+#lpn-woodpecker-overlay .wpk-confirm {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--wpk-bg);
+  border-top: 1px solid var(--wpk-border);
+  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.18);
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-cancel,
+#lpn-woodpecker-overlay .wpk-confirm-yes {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-cancel {
+  background: none;
+  color: var(--wpk-text);
+  border: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-cancel:hover {
+  background: var(--wpk-bg-hover);
+  border-color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-yes {
+  background: var(--wpk-danger-solid);
+  color: #fff;
+  border: 1px solid var(--wpk-danger-solid);
+}
+
+#lpn-woodpecker-overlay .wpk-confirm-yes:hover {
+  background: var(--wpk-danger-solid-hover);
+}
+
+/* ---- Paused: the same panel in the same places; only the signs of a pause change ---- */
+#lpn-woodpecker-overlay .wpk-title-paused {
+  color: var(--wpk-warning);
+}
+
+#lpn-woodpecker-overlay .wpk-paused-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--wpk-warning);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1; /* shorter than the text line, so the row (and everything below it) keeps its height */
+  vertical-align: middle;
+}
+
+#lpn-woodpecker-overlay .wpk-paused .wpk-progress-fill {
+  background: var(--wpk-warning);
+}
+
+#lpn-woodpecker-overlay .wpk-paused .wpk-auto-row.wpk-inactive {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#lpn-woodpecker-overlay .wpk-auto-row.wpk-inactive input {
+  cursor: default;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-skip[aria-disabled="true"]:hover {
+  background: var(--wpk-skip-bg);
+}
+
+/* Play takes Pause's place. It is an icon at rest and grows leftwards to say "Continue" (as the popup's Save/Train do). */
+#lpn-woodpecker-overlay .wpk-btn-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--wpk-accent);
+  background: var(--wpk-accent-tint);
+  border: 1px solid var(--wpk-accent-border);
+  border-radius: 6px;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: width 0.18s ease, border-color 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-play:hover,
+#lpn-woodpecker-overlay .wpk-btn-play:focus-visible {
+  width: 104px;
+  border-color: var(--wpk-accent);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-play svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+#lpn-woodpecker-overlay .wpk-play-label {
+  overflow: hidden;
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  transition: max-width 0.18s ease, margin-left 0.18s ease, opacity 0.12s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-play:hover .wpk-play-label,
+#lpn-woodpecker-overlay .wpk-btn-play:focus-visible .wpk-play-label {
+  max-width: 64px;
+  margin-left: 6px;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lpn-woodpecker-overlay .wpk-btn-play,
+  #lpn-woodpecker-overlay .wpk-play-label {
+    transition: none;
+  }
+}
+
+/* ---- Tooltip: inverted colours, so it reads on the panel in either look ---- */
+#lpn-woodpecker-overlay .wpk-tooltip {
+  position: fixed;
+  z-index: 100000;
+  width: max-content;
+  max-width: 220px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--wpk-text);
+  color: var(--wpk-bg);
+  font-size: 12px;
+  line-height: 1.35;
+  box-shadow: var(--wpk-shadow-sm);
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.12s ease, visibility 0.12s;
+}
+
+#lpn-woodpecker-overlay .wpk-tooltip.wpk-tip-on {
+  visibility: visible;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lpn-woodpecker-overlay .wpk-tooltip {
+    transition: none;
+  }
+}
+
+/* ---- Resume chip (reuses the minimized pill's look) ---- */
+#lpn-woodpecker-overlay .wpk-resume-wrap {
+  padding: 6px 8px 6px 12px;
+  gap: 6px;
+  cursor: default;
+}
+
+#lpn-woodpecker-overlay .wpk-resume,
+#lpn-woodpecker-overlay .wpk-resume-dismiss {
+  background: none;
+  border: none;
+  color: var(--wpk-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+#lpn-woodpecker-overlay .wpk-resume-dismiss {
+  color: var(--wpk-text-muted);
+  font-weight: 400;
+}
+
+/* ---- Auto-next switch ---- */
+#lpn-woodpecker-overlay .wpk-auto-row {
+  cursor: pointer;
+  margin: 0;
+}
+
+#lpn-woodpecker-overlay .wpk-auto-row input {
+  accent-color: var(--wpk-accent);
+  cursor: pointer;
+  margin: 0;
+}
+
+/* ---- Cycle complete view: its frame, title bar and bottom row are the training view's ---- */
+#lpn-woodpecker-overlay .wpk-result-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-result-check {
+  display: grid;
+  flex: none;
+  color: var(--wpk-accent);
+}
+
+#lpn-woodpecker-overlay .wpk-result-titles {
+  min-width: 0;
+}
+
+#lpn-woodpecker-overlay .wpk-result-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-result-sub {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 2px 0 12px;
+  border-bottom: 1px solid var(--wpk-border);
+}
+
+#lpn-woodpecker-overlay .wpk-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+#lpn-woodpecker-overlay .wpk-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+#lpn-woodpecker-overlay .wpk-stat-num[data-correct] { color: var(--wpk-accent); }
+#lpn-woodpecker-overlay .wpk-stat-num[data-incorrect] { color: var(--wpk-danger); }
+#lpn-woodpecker-overlay .wpk-stat-num[data-skipped] { color: var(--wpk-warning); }
+
+#lpn-woodpecker-overlay .wpk-stat-label {
+  font-size: 12.5px;
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#lpn-woodpecker-overlay .wpk-result-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--wpk-text-muted);
+}
+
+#lpn-woodpecker-overlay .wpk-result-score,
+#lpn-woodpecker-overlay .wpk-result-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-result-score.wpk-result-high { color: var(--wpk-accent); }
+#lpn-woodpecker-overlay .wpk-result-score.wpk-result-medium { color: var(--wpk-warning); }
+#lpn-woodpecker-overlay .wpk-result-score.wpk-result-low { color: var(--wpk-danger); }
+
+/* ---- The finished-cycle celebration: decoration behind the content ---- */
+#lpn-woodpecker-overlay .wpk-result {
+  position: relative;
+}
+
+#lpn-woodpecker-overlay .wpk-result > :not(.wpk-fx) {
+  position: relative;
+  z-index: 1;
+}
+
+#lpn-woodpecker-overlay .wpk-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none; /* never takes a click */
+  animation: wpk-fx-life 4.6s ease-in forwards; /* about four seconds, then it fades away and is removed */
+}
+
+@keyframes wpk-fx-life {
+  0%, 78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+#lpn-woodpecker-overlay .wpk-fx > span {
+  position: absolute;
+  display: block;
+  left: var(--x);
+  animation-duration: var(--t);
+  animation-delay: var(--d);
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+/* confetti: small coloured flakes that tumble down once */
+#lpn-woodpecker-overlay .wpk-fx-confetti {
+  top: -12px;
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+  background: var(--c);
+  opacity: 0.85;
+  animation-name: wpk-fx-fall;
+}
+
+@keyframes wpk-fx-fall {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(360px) rotate(var(--r)); }
+}
+
+/* sparkles: small stars that drift up and fade, twice */
+#lpn-woodpecker-overlay .wpk-fx-sparkles {
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  filter: drop-shadow(0 0 4px var(--wpk-fx-spark)); /* a soft glow lifts them off the panel */
+  animation-name: wpk-fx-float;
+  animation-iteration-count: 2;
+  opacity: 0;
+}
+
+#lpn-woodpecker-overlay .wpk-fx-sparkles > i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--wpk-fx-spark);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+@keyframes wpk-fx-float {
+  0% { transform: translateY(14px) scale(0.5); opacity: 0; }
+  25%, 65% { opacity: 0.9; } /* clearly there for most of each drift, not just a flicker */
+  100% { transform: translateY(-30px) scale(1); opacity: 0; }
+}
+
+/* rain: thin, slow streaks, falling twice */
+#lpn-woodpecker-overlay .wpk-fx-rain {
+  top: -20px;
+  width: 1px;
+  height: 14px;
+  background: linear-gradient(to bottom, transparent, var(--wpk-fx-rain));
+  opacity: 0.8;
+  animation-name: wpk-fx-rain;
+  animation-iteration-count: 2;
+}
+
+@keyframes wpk-fx-rain {
+  from { transform: translateY(0); }
+  to { transform: translateY(360px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #lpn-woodpecker-overlay .wpk-fx {
+    display: none;
+  }
+}
+
+/* Repeat: the filled primary, as compact as Skip was */
+#lpn-woodpecker-overlay .wpk-btn-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--wpk-fill-sheen), var(--wpk-fill-bg);
+  color: #fff;
+  border: 1px solid var(--wpk-fill-border);
+  border-radius: 6px;
+  font-family: var(--wpk-font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#lpn-woodpecker-overlay .wpk-btn-next:hover {
+  background: var(--wpk-fill-sheen), var(--wpk-fill-bg-hover);
+}
+
+#lpn-woodpecker-overlay .wpk-btn-next svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* ---- Collapsed / minimized state ---- */
+#lpn-woodpecker-overlay .wpk-collapsed {
+  background: var(--wpk-bg);
+  border: 1px solid var(--wpk-border);
+  border-radius: var(--wpk-radius);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  box-shadow: var(--wpk-shadow-sm);
+  transition: background 0.15s;
+  font-size: 13px;
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed:hover {
+  background: var(--wpk-bg-card);
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-icon {
+  font-size: 16px;
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-collapsed-progress {
+  font-weight: 600;
+  color: var(--wpk-text);
+}
+
+#lpn-woodpecker-overlay .wpk-collapsed .wpk-collapsed-timer {
+  font-family: "SF Mono", "Consolas", "Monaco", monospace;
+  color: var(--wpk-text-muted);
+  font-size: 12px;
+}
+
+/* ---- Toast inside overlay ---- */
+#lpn-woodpecker-overlay .wpk-toast {
+  position: absolute;
+  bottom: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--wpk-accent-solid);
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+#lpn-woodpecker-overlay .wpk-toast.visible {
+  opacity: 1;
+}

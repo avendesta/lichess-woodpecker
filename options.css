@@ -1,0 +1,999 @@
+/* ============================================================
+ * Lichess Woodpecker — Options/Manager Page Styles
+ * ============================================================ */
+
+:root {
+  /* A deep, rich navy with layered surfaces: each one a step lighter than the one under it, a faint highlight along its
+     top edge, and a soft blue-tinted 1px border instead of a heavy outline. Gradients are always a translucent layer over
+     a solid colour, so the readable base colour is the one in --bg / --bg-card. */
+  --bg: #0a1424;
+  --bg-card: #0e1c36;
+  --bg-elev: #12234a;
+  --bg-hover: #15294f;
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012));
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --accent: #e94560;
+  --text: #e8eefb;
+  --text-muted: #9db0cf;
+  --text-dim: #7589ab;
+  --border: rgba(125, 165, 235, 0.17);
+  --success: #2ecc71;
+  --warning: #f39c12;
+  --danger: #e74c3c;
+  --danger-text: #f26b5d; /* red text needs to be lighter than the red of a button to stay readable on the dark surfaces */
+  --danger-solid: #cf3a2b;
+  --danger-solid-hover: #b53124;
+  --blue: #3b82f6;
+  /* the colour system for the training figures: Correct green, Incorrect red, Skipped amber, Accuracy neutral */
+  --stat-correct: #22c55e;
+  --stat-incorrect: #ef4444;
+  --stat-skipped: #f59e0b;
+  --stat-accuracy: #e2e8f0;
+  /* the filled primary button (New Category, Create, Import) */
+  --fill-bg: #2563d9;
+  --fill-bg-hover: #2d70ec;
+  --fill-border: rgba(130, 175, 255, 0.5);
+  --fill-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 65%);
+  --page-bg: radial-gradient(900px 520px at 0% 0%, rgba(45, 100, 190, 0.22), transparent 70%), linear-gradient(180deg, #0b1830 0%, #08111f 100%);
+  --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background-color: var(--bg);
+  background-image: var(--page-bg);
+  background-attachment: fixed; /* the glow stays put however long the list is */
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+}
+
+/* ---- Sticky top bar: header and tabs stay in view while a long list scrolls ---- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: 0 -20px 20px;
+  padding: 0 20px;
+  /* opaque, so a long list scrolling underneath never shows through the text, but painted with the page's own fixed
+     background so the bar is seamless against it instead of a darker box */
+  background-color: var(--bg);
+  background-image: var(--page-bg);
+  background-attachment: fixed;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* .btn comes later in this file with its own padding, so this needs the extra class to win */
+.btn.btn-help {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.btn-with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-with-icon svg {
+  flex: none;
+}
+
+/* ---- Tabs ---- */
+.tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: -1px;
+  padding: 12px 2px 10px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab svg {
+  opacity: 0.9;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--blue);
+}
+
+.tab:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 2px;
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+/* The logo's navy base would vanish on the dark page, so it sits on a light rounded tile (the logo's own ivory). */
+.logo-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)), #f4f1e8; /* a highlight over the solid ivory */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: 30px;
+}
+
+/* ---- Stat cards: how many categories, and how many different puzzles ---- */
+.stat-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 62px;
+  padding: 8px 16px;
+  background: var(--sheen), var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.stat-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+}
+
+.stat-icon-blue {
+  color: #3b8bff;
+  background: rgba(59, 130, 246, 0.13);
+}
+
+.stat-icon-green {
+  color: var(--success);
+  background: rgba(46, 204, 113, 0.12);
+}
+
+.stat-body {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.stat-body strong {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stat-body span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ---- Toolbar ---- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.toolbar-left {
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-input {
+  width: 100%;
+  background: var(--bg);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search-input::placeholder {
+  color: var(--text-dim);
+}
+
+.search-input:focus {
+  border-color: var(--blue);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+  font-family: var(--font);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--fill-sheen), var(--fill-bg);
+  border: 1px solid var(--fill-border);
+  box-shadow: var(--shadow);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--fill-sheen), var(--fill-bg-hover);
+}
+
+.btn-secondary {
+  background: var(--sheen), var(--bg-elev);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--sheen), var(--bg-hover);
+}
+
+.btn-danger {
+  background: var(--danger-solid);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: var(--danger-solid-hover);
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.1s, background 0.1s;
+}
+
+.btn-icon:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.btn-icon.btn-open:hover { color: var(--success); }
+.btn-icon.btn-copy:hover { color: var(--blue); }
+.btn-icon.btn-remove:hover { color: var(--danger-text); }
+
+/* a category's bin after its first click: red until the second click deletes (or it is dismissed) */
+.btn-icon.btn-delete-cat.armed,
+.btn-icon.btn-delete-cat.armed:hover {
+  color: var(--danger-text);
+  background: rgba(231, 76, 60, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(242, 107, 93, 0.55);
+}
+
+/* text for screen readers only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- Main content ---- */
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-state {
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ---- Category card ---- */
+.category-card {
+  background: var(--sheen), var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.category-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* the divider only appears when the card is open */
+.category-card:not(.collapsed) .category-card-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.category-card-header:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.category-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.category-card-title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accordion-arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.category-card-title h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.category-card-title .count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.07);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.category-card-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.category-card-body {
+  padding: 8px 12px;
+  max-height: 500px;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.category-card.collapsed .category-card-body {
+  max-height: 0;
+  padding: 0 12px;
+  overflow: hidden;
+}
+
+/* ---- Puzzle grid ---- */
+.puzzle-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.puzzle-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px 4px 10px;
+  transition: border-color 0.15s;
+}
+
+.puzzle-chip:hover {
+  border-color: var(--blue);
+}
+
+.puzzle-chip-id {
+  font-family: "SF Mono", "Consolas", "Monaco", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-right: 4px;
+}
+
+.puzzle-chip .btn-icon {
+  padding: 3px 4px;
+}
+
+.puzzle-chip .btn-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.puzzle-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 8px 4px;
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(3, 8, 18, 0.66);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--sheen), var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  padding: 24px;
+  width: 380px;
+  max-width: 90vw;
+}
+
+.modal h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.modal-input:focus {
+  border-color: var(--blue);
+}
+
+.modal-error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.delete-message {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- Help & About ---- */
+.help-modal {
+  width: 460px;
+  padding: 22px;
+}
+
+.about-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.about-logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0)), #f4f1e8;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.about-logo img {
+  display: block;
+  width: auto;
+  height: 38px;
+}
+
+.about-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.about-titles h2 {
+  margin: 2px 0 4px;
+  font-size: 18px;
+}
+
+.about-subtitle {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.about-close {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.about-close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0 16px;
+}
+
+.help-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--sheen), var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.help-item:hover {
+  border-color: rgba(120, 165, 255, 0.4);
+  background: var(--sheen), var(--bg-hover);
+}
+
+.help-item:focus-visible,
+.about-close:focus-visible {
+  outline: 2px solid #8ab4ff;
+  outline-offset: 2px;
+}
+
+.help-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  color: var(--text-muted);
+}
+
+.help-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.help-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.help-desc {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.help-ext {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.about-foot {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.about-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.about-version {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 200;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+
+.toast.toast-success { background: var(--success); color: #07210f; }
+.toast.toast-error { background: var(--danger-solid); color: #fff; }
+.toast.toast-warn { background: var(--warning); color: #1a1205; }
+
+/* ---- Export ---- */
+.version-line {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.page-foot {
+  margin-top: 32px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.backup-actions .btn {
+  justify-content: center;
+  padding: 12px 16px;
+}
+
+.import-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 18px;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.import-summary .import-note {
+  color: var(--text);
+}
+
+/* ---- Training Stats ---- */
+.stats-section {
+  margin: 0;
+  padding: 16px;
+  background: var(--sheen), var(--bg-card);
+  border: 1px solid rgba(110, 160, 245, 0.28);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.32);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-header-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.section-header-buttons .btn {
+  height: 36px;
+  border-color: rgba(120, 165, 255, 0.3);
+}
+
+.stats-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+/* the table sits in its own rounded, bordered box, a shade darker than the card around it */
+.stats-table-container {
+  overflow-x: auto;
+  background: rgba(3, 9, 20, 0.38);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 7px 5px; /* tight enough that the widest date, "Yesterday, 11:09 AM", fits the 760px page without scrolling */
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+/* thin dividers between the columns, in the header and in the rows */
+.stats-table th + th,
+.stats-table td + td {
+  border-left: 1px solid rgba(125, 165, 235, 0.1);
+}
+
+.stats-table th + th {
+  border-left-color: rgba(125, 165, 235, 0.16);
+}
+
+.stats-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stats-table th {
+  padding: 12px 5px;
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* a small icon in front of each figure column's name, coloured for what it counts */
+.th-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.th-icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.th-category { color: #3b8bff; }
+.th-time,
+.th-puzzles { color: var(--text-muted); }
+.th-correct { color: var(--stat-correct); }
+.th-incorrect { color: var(--stat-incorrect); }
+.th-skipped { color: var(--stat-skipped); }
+.th-accuracy { color: var(--stat-accuracy); }
+
+/* the words on the left, the numbers centred, the date on the right; widths that make the longer names wrap in two */
+.stats-table th:nth-child(1) { width: 18%; }
+.stats-table th:nth-child(2) { width: 10%; }
+.stats-table th:nth-child(3) { width: 11%; }
+.stats-table th:nth-child(4) { width: 11%; }
+.stats-table th:nth-child(5) { width: 12%; }
+.stats-table th:nth-child(6) { width: 11%; }
+.stats-table th:nth-child(7) { width: 12%; }
+.stats-table th:nth-child(8) { width: 15%; }
+
+.stats-table th:nth-child(n+2):nth-child(-n+7),
+.stats-table td.time-taken,
+.stats-table td.total-puzzles,
+.stats-table td.correct,
+.stats-table td.incorrect,
+.stats-table td.skipped,
+.stats-table td.success-rate {
+  text-align: center;
+}
+
+.stats-table td {
+  color: var(--text);
+}
+
+.stats-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.stats-table .category-name,
+.stats-table .total-puzzles {
+  font-weight: 600;
+}
+
+.stats-table .category-name {
+  min-width: 96px; /* "All Categories", the longest name Woodpecker makes itself, stays on one line */
+}
+
+.stats-table .correct {
+  color: var(--stat-correct);
+  font-weight: 600;
+}
+
+.stats-table .incorrect {
+  color: var(--stat-incorrect);
+  font-weight: 600;
+}
+
+.stats-table .skipped {
+  color: var(--stat-skipped);
+  font-weight: 600;
+}
+
+.stats-table .success-rate {
+  font-weight: 600;
+}
+
+.stats-table .success-rate.high {
+  color: var(--success);
+}
+
+.stats-table .success-rate.medium {
+  color: var(--warning);
+}
+
+.stats-table .success-rate.low {
+  color: var(--danger-text);
+}
+
+.stats-table .completed-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* the count and Load more in a bar of their own */
+.stats-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.stats-count {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.stats-more .btn {
+  height: 34px;
+  border-color: rgba(120, 165, 255, 0.3);
+}
+
+/* ---- Utility ---- */
+.hidden {
+  display: none !important;
+}

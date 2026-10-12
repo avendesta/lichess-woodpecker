@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="270 42 875 1135" role="img" aria-labelledby="title desc">
+  <title id="title">Lichess Woodpecker — woodpecker chess knight</title>
+  <desc id="desc">Vector emblem of a woodpecker with a red crest, cream face, blue wing and a navy chess-knight base.</desc>
+  <defs>
+    <linearGradient id="navy" x1="0" y1="0" x2="0.84" y2="1">
+      <stop offset="0" stop-color="#071c35"/>
+      <stop offset="1" stop-color="#00142c"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="0.8" y2="0.8">
+      <stop offset="0" stop-color="#ff514c"/>
+      <stop offset="1" stop-color="#ff393d"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#399cf6"/>
+      <stop offset="1" stop-color="#1970dc"/>
+    </linearGradient>
+    <linearGradient id="ivory" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset="1" stop-color="#f2f0e8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The crest is set behind the head. -->
+  <path fill="url(#red)" d="M329 69
+    C403 139 488 157 631 170
+    C767 181 824 228 859 339
+    C817 285 774 252 703 238
+    C632 221 567 226 508 220
+    C530 236 553 254 582 266
+    C537 290 508 317 466 326
+    C410 314 351 253 323 178
+    C358 190 392 211 423 215
+    C389 186 359 136 329 69Z"/>
+
+  <!-- Dark silhouette: head, pointed beak, body and stylized knight pedestal. -->
+  <path fill="url(#navy)" d="M341 1054
+    C323 929 350 782 400 670
+    C431 607 476 575 518 560
+    C467 504 446 442 449 388
+    C456 309 512 263 581 239
+    C658 212 739 226 798 259
+    C831 280 849 310 861 339
+    C938 369 1028 397 1105 430
+    C1021 433 915 438 818 450
+    C745 460 703 492 728 527
+    C743 552 800 582 832 647
+    C860 700 875 767 857 819
+    C815 838 785 866 777 898
+    C770 926 792 944 813 959
+    C826 969 819 991 798 991
+    L467 991
+    C405 1003 375 1042 341 1054Z"/>
+
+  <!-- Warm red cheek marking echoes a red-headed woodpecker. -->
+  <path fill="url(#red)" d="M541 334
+    C612 327 667 377 740 413
+    C702 419 665 408 633 400
+    C585 388 565 414 581 452
+    C610 512 672 570 700 606
+    C628 555 567 514 530 459
+    C502 419 494 363 541 334Z"/>
+
+  <!-- Large cream S-shaped facial blaze flowing into the breast. -->
+  <path fill="url(#ivory)" d="M526 338
+    C577 289 636 269 688 277
+    C741 284 771 316 814 350
+    C856 372 905 389 955 403
+    C905 402 856 389 828 385
+    C806 381 787 397 754 413
+    C716 429 673 432 682 485
+    C689 521 741 551 778 611
+    C814 673 815 733 786 788
+    C749 850 681 887 552 899
+    C629 868 693 813 720 754
+    C747 691 740 638 697 595
+    C659 554 605 510 583 469
+    C562 427 583 393 632 402
+    C664 407 701 414 740 413
+    C690 399 647 364 612 348
+    C584 334 559 329 526 338Z"/>
+
+  <!-- Bright accent wing and the feather-shaped cut-out. -->
+  <path fill="url(#wing)" d="M366 819
+    C385 733 436 650 500 601
+    C554 558 600 564 617 606
+    C639 661 592 755 541 807
+    C489 862 427 897 368 926
+    C439 847 506 778 551 674
+    C473 713 411 761 366 819Z"/>
+
+  <!-- Eye, including a tiny reflective glint. -->
+  <path fill="#031a37" d="M711 305
+    C690 302 674 321 683 346
+    C690 367 717 380 740 372
+    C758 365 764 345 758 333
+    C750 341 736 337 731 326
+    C726 316 729 307 737 302
+    C730 301 720 303 711 305Z"/>
+  <path fill="#fffaf0" d="M731 305 C721 316 723 332 735 338 C748 344 761 335 759 325 C751 337 731 331 731 305Z"/>
+
+  <!-- Three rounded steps reference a chess piece base. -->
+  <path fill="url(#navy)" d="M476 1002 H788 C809 1002 822 1019 833 1041
+     C842 1059 826 1070 812 1070 H445 C423 1070 415 1057 425 1036
+     C437 1011 452 1002 476 1002Z"/>
+  <path fill="url(#navy)" d="M458 1081 H813
+     C844 1081 871 1105 886 1133
+     C892 1144 887 1158 878 1158
+     H364 C356 1158 361 1145 368 1134
+     C386 1102 419 1081 458 1081Z"/>
+</svg>
