@@ -345,6 +345,7 @@ body {
 }
 
 .btn-icon.btn-open:hover { color: var(--success); }
+.btn-icon.btn-train:hover { color: var(--warning); }
 .btn-icon.btn-copy:hover { color: var(--blue); }
 .btn-icon.btn-remove:hover { color: var(--danger-text); }
 

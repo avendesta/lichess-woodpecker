@@ -839,3 +839,63 @@ test("the page's text is readable on its surfaces, on both tabs and in the dialo
   await check("Import JSON", page.getByRole("button", { name: "Import JSON" }));
   expect(low).toEqual([]);
 });
+
+// ---- Train from the options page: a lightning button beside Rename and Delete opens the cycle in a new Lichess tab ----
+
+const FAKE_PUZZLE = "<!doctype html><title>puzzle</title><main class='puzzle'><div class='puzzle__moves'></div></main>";
+
+test("the lightning button trains a category in a new tab, which owns the session and shows the overlay with no Resume chip", async ({ context, extensionUrl, seedStorage, getStorage }) => {
+  await context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: FAKE_PUZZLE }));
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb", "ccccc"], Forks: ["ddddd"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const card = page.locator(".category-card", { hasText: "Pins" });
+  const train = card.getByRole("button", { name: "Train this category" });
+  await expect(train).toBeVisible();
+  // between the icons: Train, then Rename, then Delete
+  const order = await card.locator(".category-card-actions button").evaluateAll((bs) => bs.map((b) => b.className.match(/btn-(train|rename|delete-cat)/)[1]));
+  expect(order).toEqual(["train", "rename", "delete-cat"]);
+
+  const opened = context.waitForEvent("page", { predicate: (p) => p !== page });
+  await train.click();
+  const tab = await opened;
+  await expect(tab).toHaveURL(/https:\/\/lichess\.org\/training\/[a-e]{5}/);
+  await expect(tab.locator("#lpn-woodpecker-overlay .wpk-panel")).toBeVisible({ timeout: 15_000 });
+  await expect(tab.locator("#lpn-woodpecker-overlay .wpk-resume")).toHaveCount(0); // it owns the session from the start
+
+  const s = await getStorage("trainingSession");
+  expect(s.category).toBe("Pins");
+  expect(Number.isInteger(s.ownerTabId)).toBe(true);
+  expect([...s.queue].sort()).toEqual(["aaaaa", "bbbbb", "ccccc"].map((id) => `https://lichess.org/training/${id}`));
+  expect(s.totalPuzzles).toBe(3);
+});
+
+test("Train on the options page continues the category's paused cycle instead of starting over, and an empty category does not start", async ({ context, extensionUrl, seedStorage, getStorage }) => {
+  await context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: FAKE_PUZZLE }));
+  const paused = { ownerTabId: null, category: "Pins", queue: ["https://lichess.org/training/aaaaa", "https://lichess.org/training/bbbbb"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, correctInCycle: 1, incorrectInCycle: 0, skippedInCycle: 0, cycleCount: 1, isMinimized: false, timerStartedAt: Date.now() - 60_000, pausedAt: Date.now() - 30_000 };
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb"], Empty: [] }), pausedCycles: { Pins: paused } });
+  const page = await optionsPage({ context, extensionUrl });
+
+  const opened = context.waitForEvent("page", { predicate: (p) => p !== page });
+  await page.locator(".category-card", { hasText: "Pins" }).getByRole("button", { name: "Train this category" }).click();
+  const tab = await opened;
+  await expect(tab).toHaveURL("https://lichess.org/training/bbbbb"); // where it was paused
+  const s = await getStorage("trainingSession");
+  expect(s.currentIndex).toBe(1);
+  expect(s.pausedAt).toBeUndefined();
+  expect(await getStorage("pausedCycles")).toBeFalsy(); // taken out of the parked map
+
+  const before = context.pages().length;
+  await page.locator(".category-card", { hasText: "Empty" }).getByRole("button", { name: "Train this category" }).click();
+  await expect(page.locator(".toast")).toContainText("No puzzles to train");
+  expect(context.pages().length).toBe(before); // no tab opened
+});
+
+test("a double-click on the lightning button opens one tab, not two", async ({ context, extensionUrl, seedStorage }) => {
+  await context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: FAKE_PUZZLE }));
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const before = context.pages().length;
+  await page.locator(".category-card", { hasText: "Pins" }).getByRole("button", { name: "Train this category" }).dblclick();
+  await page.waitForTimeout(1500);
+  expect(context.pages().length).toBe(before + 1);
+});

@@ -191,6 +191,7 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false) {
       </div>
     </div>
     <div class="category-card-actions">
+      <button class="btn-icon btn-train" title="Train this category" aria-label="Train this category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button>
       <button class="btn-icon btn-rename" title="Rename category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="btn-icon btn-delete-cat" title="Delete category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
     </div>
@@ -329,6 +330,8 @@ function bindEvents() {
       } else {
         showToast(resp.error || "Error", "error");
       }
+    } else if (btn.classList.contains("btn-train")) {
+      await trainCategory(btn.dataset.cat);
     } else if (btn.classList.contains("btn-rename")) {
       openModal("rename", btn.dataset.cat);
     } else if (btn.classList.contains("btn-delete-cat")) {
@@ -818,4 +821,82 @@ async function clearStats() {
     console.error('[options] Failed to clear stats:', error);
     showToast('Failed to clear training statistics.', 'error');
   }
+}
+
+/**
+ * Train a category from here: like the popup's Train, but in a new tab (this page has no puzzle tab to take over). A parked
+ * cycle of the category is continued; otherwise a fresh shuffled cycle starts. The new tab owns the session, and the
+ * background sets it (START_SESSION) before the tab is pointed at the puzzle, so the overlay finds its owner at once.
+ */
+let training = false; // a second click while the first is still starting would open a second tab and replace the cycle just continued
+async function trainCategory(name) {
+  if (training) return;
+  training = true;
+  try {
+    await startCategory(name);
+  } catch (err) {
+    showToast("Could not start training.", "error");
+  } finally {
+    training = false;
+  }
+}
+
+async function startCategory(name) {
+  const all = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
+  if (!all || all.ok === false) {
+    showToast((all && all.error) || "Could not read your library.", "error");
+    return;
+  }
+  const categories = all.categories || {};
+  if (!Object.hasOwn(categories, name) || categories[name].length === 0) {
+    showToast("No puzzles to train.", "warn");
+    return;
+  }
+  const { trainingSession, pausedCycles } = await browser.storage.local.get(["trainingSession", "pausedCycles"]);
+  const parked = pausedCycles || {};
+  let park = null; // a cycle paused in the old shape (still in the active slot) is parked now rather than lost
+  if (trainingSession && trainingSession.pausedAt) park = { ...trainingSession, ownerTabId: null };
+  let session = null;
+  let unpark = null;
+  if (park && park.category === name) {
+    session = park;
+    park = null;
+  } else if (Object.hasOwn(parked, name)) {
+    session = { ...parked[name] };
+    unpark = name;
+  }
+  if (session) {
+    session.timerStartedAt += Date.now() - session.pausedAt; // paused time stays out of the clock
+    delete session.pausedAt;
+  } else {
+    const ids = [...new Set(categories[name])];
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    session = {
+      category: name,
+      queue: ids.map((id) => `https://lichess.org/training/${id}`),
+      currentIndex: 0,
+      totalPuzzles: ids.length,
+      cycleCount: 1,
+      timerStartedAt: Date.now(),
+      isMinimized: false,
+      completedInCycle: 0,
+    };
+  }
+  const tab = await browser.tabs.create({ url: "about:blank" });
+  session.ownerTabId = tab.id;
+  let response;
+  try {
+    response = await browser.runtime.sendMessage({ type: "START_SESSION", session, park, unpark });
+  } catch (err) {
+    response = null;
+  }
+  if (!response || !response.ok) {
+    showToast((response && response.error) || "Could not start training.", "error");
+    chrome.tabs.remove(tab.id);
+    return;
+  }
+  chrome.tabs.update(tab.id, { url: session.queue[session.currentIndex] });
 }
