@@ -891,7 +891,7 @@ test("Train on the options page continues the category's paused cycle instead of
   expect(await getStorage("pausedCycles")).toBeFalsy(); // taken out of the parked map
 
   const before = context.pages().length;
-  await page.locator(".category-card", { hasText: "Empty" }).getByRole("button", { name: "Train this category" }).click();
+  await page.locator(".category-card", { hasText: "Empty" }).getByRole("button", { name: "Train this category" }).click({ force: true }); // aria-disabled: Playwright would wait forever, a person can still press it
   await expect(page.locator(".toast")).toContainText("No puzzles to train");
   expect(context.pages().length).toBe(before); // no tab opened
 });
@@ -1036,4 +1036,17 @@ test("searching opens the matching categories, clearing the search closes them, 
   await page.locator("#search-input").fill("");
   await expect(page.locator(".category-card")).toHaveCount(3);
   await expect(page.locator(".category-card.collapsed")).toHaveCount(3); // back to closed
+});
+
+test("a category's Train button is greyed out when it has no puzzles, as in the popup, and still tells you why when pressed", async ({ context, extensionUrl, seedStorage }) => {
+  await seedStorage({ ...notes({ Empty: [], Full: ["aaaaa"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const btn = (n) => page.locator(".category-card", { hasText: n }).locator(".btn-train");
+  await expect(btn("Empty")).toHaveAttribute("aria-disabled", "true");
+  await expect(btn("Empty")).toHaveAttribute("title", "Save a puzzle before training.");
+  expect(await btn("Empty").evaluate((e) => getComputedStyle(e).opacity)).toBe("0.45");
+  await expect(btn("Full")).not.toHaveAttribute("aria-disabled", "true");
+  expect(await btn("Full").evaluate((e) => getComputedStyle(e).opacity)).toBe("1");
+  await btn("Empty").click({ force: true }); // aria-disabled buttons are not "actionable" to Playwright, but a person can press one
+  await expect(page.locator(".toast")).toContainText("No puzzles to train");
 });

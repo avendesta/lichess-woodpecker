@@ -232,6 +232,10 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false, pause
   const trainBtn = header.querySelector(".btn-train");
   const waiting = paused && Number.isFinite(paused.totalPuzzles) ? paused : null;
   paintTrainButton(trainBtn, waiting, isRunning, "this category");
+  if (totalCount === 0) { // nothing to train: greyed out like the popup's, and a click says why
+    trainBtn.setAttribute("aria-disabled", "true");
+    trainBtn.title = "Save a puzzle before training.";
+  }
   if (waiting) {
     const tag = document.createElement("span");
     tag.className = "paused-tag";

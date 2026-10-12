@@ -1035,3 +1035,5 @@ body {
   font-weight: 600;
 }
 .btn-train.is-running svg { color: #fbbf24; fill: rgba(251, 191, 36, 0.35); } /* the cycle being trained now: a gold bolt */
+.btn-train[aria-disabled="true"], .btn-train:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-train[aria-disabled="true"]:hover, .btn-train:disabled:hover { background: rgba(125, 165, 235, 0.09); border-color: var(--border); }
