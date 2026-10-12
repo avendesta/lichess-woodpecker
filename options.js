@@ -191,10 +191,9 @@ function renderTotals(categories) {
  * `⏸ n/total` tag, and pressing Train continues it. A gold bolt marks the cycle running now. `what` finishes the sentences:
  * "this category" or "all categories".
  */
-const BOLT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
 function paintTrainButton(btn, waiting, isRunning, what) {
   btn.classList.toggle("is-running", isRunning);
-  btn.innerHTML = BOLT + "<span></span>";
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span></span>'; // a literal: the AMO linter flags any other assignment
   btn.querySelector("span").textContent = what === "all categories" ? "Train all categories" : "Train";
   btn.setAttribute("aria-label", `Train ${what}`);
   if (isRunning) btn.title = `Training ${what} now`;

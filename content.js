@@ -638,43 +638,78 @@
   
   
   /* ---- Cycle complete view ---- */
-  // A finished cycle is celebrated by how it went: confetti for a perfect one, sparkles for a good one, nothing for a middling
-  // one, a gentle rain for a hard one. Only decoration: it sits behind the content, never takes a click, is hidden from
-  // assistive technology, fades out on its own after a few seconds, is skipped for anyone who asked for reduced motion, and
-  // plays once per finished cycle (minimizing and reopening the overlay does not start it again).
-  let celebratedFor = null;
+  // The score screen has a scene behind it, by how the cycle went: fireworks and confetti for a perfect one, golden sparkles
+  // above 75%, floating blue particles from 50% to 75%, a storm below 50%. Only decoration: it sits behind the content, never
+  // takes a click, is hidden from assistive technology, and is not created at all for anyone who asked for reduced motion.
+  // It stays for as long as the score screen is up (minimizing removes it, reopening builds it again) and costs nothing while
+  // it plays: every piece loops in CSS and animates only transform and opacity (no timers, no per-frame script), within a
+  // budget of about 120 elements. The one flashing element, the storm's lightning, is a single dim pulse every few seconds.
+  const rand = (min, max) => min + Math.random() * (max - min);
+  const fx2 = (n) => n.toFixed(2);
   function makeCelebration(accuracy) {
-    if (celebratedFor === session.cycleFinishedAt) return null;
-    celebratedFor = session.cycleFinishedAt;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
-    const kind = accuracy >= 100 ? "confetti" : accuracy >= 70 ? "sparkles" : accuracy >= 50 ? null : "rain";
-    if (!kind) return null;
+    const kind = accuracy >= 100 ? "fireworks" : accuracy > 75 ? "sparkles" : accuracy >= 50 ? "particles" : "storm";
 
     const fx = document.createElement("div");
     fx.className = "wpk-fx";
     fx.dataset.fx = kind;
     fx.setAttribute("aria-hidden", "true");
-    const colours = ["#2ecc71", "#3b8bff", "#f59e0b", "#ef4444", "#a855f7"];
-    const count = { confetti: 34, sparkles: 20, rain: 26 }[kind];
-    for (let i = 0; i < count; i++) {
-      const bit = document.createElement("span");
-      bit.className = `wpk-fx-${kind}`;
-      bit.style.setProperty("--x", `${(Math.random() * 96 + 2).toFixed(1)}%`);
-      bit.style.setProperty("--d", `${(Math.random() * 1.2).toFixed(2)}s`); // when it starts
-      bit.style.setProperty("--t", `${(kind === "rain" ? 1.4 + Math.random() * 0.9 : 1.8 + Math.random() * 1.2).toFixed(2)}s`); // how long it takes
-      if (kind === "confetti") {
-        bit.style.setProperty("--c", colours[i % colours.length]);
-        bit.style.setProperty("--r", `${Math.round(360 + Math.random() * 540)}deg`);
+    // a piece: a span with a class and custom properties; a negative delay means it is already mid-flight when the screen opens
+    const add = (parent, cls, vars) => {
+      const el = document.createElement("span");
+      el.className = cls;
+      for (const [k, v] of Object.entries(vars || {})) el.style.setProperty(k, v);
+      parent.appendChild(el);
+      return el;
+    };
+
+    if (kind === "fireworks") {
+      const palettes = [["#ffc933", "#ff9f43", "#ffb300"], ["#ff4d6a", "#ff7a93", "#ff3d5a"], ["#4aa3ff", "#7cc0ff", "#2f86ff"], ["#3ee088", "#7af0b0", "#18c964"]];
+      const spots = [[24, 26], [74, 22], [50, 46], [86, 54]];
+      palettes.forEach((colours, i) => {
+        const period = 3.4 + i * 0.35;
+        const burst = add(fx, "wpk-fx-burst", { "--bx": `${spots[i][0]}%`, "--by": `${spots[i][1]}%`, "--P": `${fx2(period)}s`, "--D": `${fx2(-rand(0, period))}s` });
+        add(burst, "wpk-fx-rocket", {});
+        for (let ring = 0; ring < 2; ring++) {
+          const n = ring ? 12 : 8;
+          const reach = ring ? 104 : 58;
+          const turn = rand(0, Math.PI);
+          for (let k = 0; k < n; k++) {
+            const a = turn + (k / n) * Math.PI * 2;
+            add(burst, "wpk-fx-spark", { "--dx": Math.round(Math.cos(a) * reach), "--dy": Math.round(Math.sin(a) * reach), "--c": colours[(k + ring) % colours.length] });
+          }
+        }
+      });
+      const colours = ["#2ecc71", "#3b8bff", "#f59e0b", "#ef4444", "#a855f7", "#ffd76a"];
+      for (let i = 0; i < 26; i++) {
+        const t = rand(4.2, 7);
+        add(fx, "wpk-fx-confetti", { "--x": `${fx2(rand(2, 96))}%`, "--t": `${fx2(t)}s`, "--d": `${fx2(-rand(0, t))}s`, "--c": colours[i % colours.length], "--sw": `${Math.round(rand(10, 26))}px`, "--r": `${Math.round(rand(300, 900))}deg` });
       }
-      if (kind === "sparkles") {
-        bit.style.setProperty("--y", `${(Math.random() * 70 + 12).toFixed(1)}%`);
-        bit.style.setProperty("--s", `${Math.round(14 + Math.random() * 6)}px`);
-        bit.appendChild(document.createElement("i")); // the star shape; the wrapper carries the glow, which a clip-path would cut off
+    } else if (kind === "sparkles") {
+      add(fx, "wpk-fx-glow", {});
+      for (let i = 0; i < 22; i++) {
+        const t = rand(2.2, 4.4);
+        const size = i < 4 ? rand(24, 30) : rand(10, 20); // a few big stars among the small ones
+        const star = add(fx, "wpk-fx-star", { "--x": `${fx2(rand(3, 94))}%`, "--y": `${fx2(rand(4, 92))}%`, "--s": `${Math.round(size)}px`, "--t": `${fx2(t)}s`, "--d": `${fx2(-rand(0, t))}s` });
+        star.appendChild(document.createElement("i")); // the star shape; the wrapper carries the glow, which a clip-path would cut off
       }
-      fx.appendChild(bit);
+    } else if (kind === "particles") {
+      add(fx, "wpk-fx-glow", {});
+      for (let i = 0; i < 24; i++) {
+        const t = rand(7, 13);
+        add(fx, "wpk-fx-orb", { "--x": `${fx2(rand(2, 94))}%`, "--s": `${Math.round(rand(6, 30))}px`, "--t": `${fx2(t)}s`, "--d": `${fx2(-rand(0, t))}s`, "--sw": `${Math.round(rand(-18, 18))}px`, "--o": fx2(rand(0.35, 0.8)) });
+      }
+    } else {
+      [["-40px", "-10px", 15], ["60px", "-24px", 19], ["150px", "-6px", 23]].forEach(([x, y, t], i) => {
+        add(fx, "wpk-fx-cloud", { "--x": x, "--y": y, "--t": `${t}s`, "--d": `${-i * 6}s` });
+      });
+      for (let i = 0; i < 56; i++) {
+        const near = i % 3 === 0; // two depths: fewer, longer, brighter drops in front
+        const t = near ? rand(0.55, 0.8) : rand(0.9, 1.3);
+        add(fx, `wpk-fx-drop${near ? " wpk-fx-near" : ""}`, { "--x": `${fx2(rand(0, 118))}%`, "--t": `${fx2(t)}s`, "--d": `${fx2(-rand(0, t))}s` });
+      }
+      add(fx, "wpk-fx-lightning", {});
     }
-    fx.addEventListener("animationend", (e) => { if (e.target === fx) fx.remove(); }); // its own fade-out is the last animation
-    setTimeout(() => fx.remove(), 6000); // and a backstop, in case that event never comes
     return fx;
   }
 

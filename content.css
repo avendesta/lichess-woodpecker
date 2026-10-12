@@ -24,8 +24,15 @@
   --wpk-fill-bg-hover: #2f66d0;
   --wpk-fill-border: rgba(130, 175, 255, 0.45);
   --wpk-fill-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 65%);
-  --wpk-fx-spark: #ffd76a; /* the celebration's sparkles and rain, tuned for a dark panel */
-  --wpk-fx-rain: rgba(140, 180, 255, 0.5);
+  --wpk-fx-spark: #ffd76a; /* the score screen's scene, tuned for a dark panel */
+  --wpk-fx-rain: rgba(175, 205, 255, 0.9);
+  --wpk-fx-cloud: rgba(118, 138, 178, 0.9);
+  --wpk-fx-gloom: rgba(2, 5, 14, 0.62);
+  --wpk-fx-rocket: #fff;
+  --wpk-fx-orb-core: rgba(185, 215, 255, 0.95);
+  --wpk-fx-flash: rgba(190, 215, 255, 0.9);
+  --wpk-fx-orb: rgba(90, 150, 255, 0.95);
+  --wpk-fx-glow: radial-gradient(ellipse at 50% 100%, rgba(80, 130, 255, 0.22), transparent 70%), radial-gradient(ellipse at 50% 0%, rgba(255, 200, 90, 0.18), transparent 65%);
   --wpk-skip-bg: #2b4068; /* muted blue; pale text on it passes contrast in both looks, so there is no light override */
   --wpk-skip-bg-hover: #345083;
   --wpk-skip-text: #cfe0ff;
@@ -62,7 +69,14 @@
   --wpk-danger-solid-hover: #a93226;
   --wpk-warning: #9a5b00;
   --wpk-fx-spark: #c98f0a; /* and for a light one */
-  --wpk-fx-rain: rgba(60, 100, 175, 0.5);
+  --wpk-fx-rain: rgba(60, 100, 175, 0.7);
+  --wpk-fx-cloud: rgba(85, 105, 140, 0.36);
+  --wpk-fx-gloom: rgba(40, 55, 85, 0.1);
+  --wpk-fx-rocket: #d98200;
+  --wpk-fx-orb-core: rgba(120, 170, 245, 0.95);
+  --wpk-fx-flash: rgba(70, 100, 160, 0.9);
+  --wpk-fx-orb: rgba(50, 110, 220, 0.9);
+  --wpk-fx-glow: radial-gradient(ellipse at 50% 100%, rgba(60, 110, 230, 0.16), transparent 70%), radial-gradient(ellipse at 50% 0%, rgba(230, 160, 40, 0.16), transparent 65%);
   --wpk-accent-tint: rgba(27, 127, 69, 0.12);
   --wpk-accent-border: rgba(27, 127, 69, 0.6);
   --wpk-shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.18);
@@ -692,85 +706,192 @@
   z-index: 1;
 }
 
+/* ---- The score screen's scene (see makeCelebration): behind the content, it takes no clicks, and everything in it loops for as
+   long as the screen is up. Only transform and opacity are animated, so the browser does it on the GPU without repainting. ---- */
 #lpn-woodpecker-overlay .wpk-fx {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  contain: paint;
   pointer-events: none; /* never takes a click */
-  animation: wpk-fx-life 4.6s ease-in forwards; /* about four seconds, then it fades away and is removed */
 }
 
-@keyframes wpk-fx-life {
-  0%, 78% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-#lpn-woodpecker-overlay .wpk-fx > span {
+/* :where() keeps this default weaker than the scene pieces' own rules (an element selector must not beat their classes) */
+#lpn-woodpecker-overlay :where(.wpk-fx) span {
   position: absolute;
   display: block;
-  left: var(--x);
-  animation-duration: var(--t);
-  animation-delay: var(--d);
+  animation-duration: var(--t, 3s);
+  animation-delay: var(--d, 0s);
+  animation-iteration-count: infinite;
   animation-timing-function: linear;
   animation-fill-mode: both;
 }
 
-/* confetti: small coloured flakes that tumble down once */
+/* a soft light behind the stars and the particles */
+#lpn-woodpecker-overlay .wpk-fx-glow {
+  inset: 0;
+  background: var(--wpk-fx-glow);
+  animation: wpk-fx-breathe 6s ease-in-out infinite alternate;
+}
+@keyframes wpk-fx-breathe {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+/* ---- fireworks (100%): rockets rise, burst into two rings of sparks that fall and fade, then it starts again ---- */
+#lpn-woodpecker-overlay .wpk-fx-burst {
+  left: var(--bx);
+  top: var(--by);
+  width: 0;
+  height: 0;
+}
+#lpn-woodpecker-overlay .wpk-fx-burst > span {
+  left: 0;
+  top: 0;
+  animation-duration: var(--P);
+  animation-delay: var(--D);
+  animation-timing-function: cubic-bezier(0.15, 0.7, 0.35, 1);
+}
+#lpn-woodpecker-overlay .wpk-fx-rocket {
+  width: 3px;
+  height: 22px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: linear-gradient(to bottom, var(--wpk-fx-rocket), rgba(255, 190, 60, 0));
+  animation-name: wpk-fx-rise;
+}
+@keyframes wpk-fx-rise {
+  0% { transform: translateY(230px); opacity: 0; }
+  4% { opacity: 1; }
+  30% { transform: translateY(0); opacity: 1; }
+  32%, 100% { transform: translateY(0); opacity: 0; }
+}
+#lpn-woodpecker-overlay .wpk-fx-spark {
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 8px 2px var(--c);
+  animation-name: wpk-fx-burst;
+}
+@keyframes wpk-fx-burst {
+  0%, 30% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  32% { transform: translate(0, 0) scale(1.4); opacity: 1; }
+  60% { transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px)) scale(1); opacity: 0.95; }
+  100% { transform: translate(calc(var(--dx) * 1.2px), calc(var(--dy) * 1.2px + 60px)) scale(0.3); opacity: 0; }
+}
+/* confetti: flakes that tumble down, swaying side to side */
 #lpn-woodpecker-overlay .wpk-fx-confetti {
-  top: -12px;
+  top: -14px;
+  left: var(--x);
   width: 6px;
-  height: 10px;
+  height: 11px;
   border-radius: 1px;
   background: var(--c);
-  opacity: 0.85;
   animation-name: wpk-fx-fall;
 }
-
 @keyframes wpk-fx-fall {
-  from { transform: translateY(0) rotate(0deg); }
-  to { transform: translateY(360px) rotate(var(--r)); }
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.9; }
+  25% { transform: translate3d(var(--sw), 110px, 0) rotate(calc(var(--r) * 0.25)); }
+  50% { transform: translate3d(0, 220px, 0) rotate(calc(var(--r) * 0.5)); }
+  75% { transform: translate3d(var(--sw), 330px, 0) rotate(calc(var(--r) * 0.75)); }
+  100% { transform: translate3d(0, 450px, 0) rotate(var(--r)); opacity: 0.9; }
 }
 
-/* sparkles: small stars that drift up and fade, twice */
-#lpn-woodpecker-overlay .wpk-fx-sparkles {
+/* ---- sparkles (above 75%): golden four-point stars that swell, glow and fade, over a warm light ---- */
+#lpn-woodpecker-overlay .wpk-fx-star {
+  left: var(--x);
   top: var(--y);
   width: var(--s);
   height: var(--s);
-  filter: drop-shadow(0 0 4px var(--wpk-fx-spark)); /* a soft glow lifts them off the panel */
-  animation-name: wpk-fx-float;
-  animation-iteration-count: 2;
+  filter: drop-shadow(0 0 5px var(--wpk-fx-spark)); /* a soft glow lifts them off the panel */
+  animation-name: wpk-fx-twinkle;
   opacity: 0;
 }
-
-#lpn-woodpecker-overlay .wpk-fx-sparkles > i {
+#lpn-woodpecker-overlay .wpk-fx-star > i {
   display: block;
   width: 100%;
   height: 100%;
   background: var(--wpk-fx-spark);
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
 }
-
-@keyframes wpk-fx-float {
-  0% { transform: translateY(14px) scale(0.5); opacity: 0; }
-  25%, 65% { opacity: 0.9; } /* clearly there for most of each drift, not just a flicker */
-  100% { transform: translateY(-30px) scale(1); opacity: 0; }
+@keyframes wpk-fx-twinkle {
+  0% { transform: scale(0.2) rotate(0deg); opacity: 0; }
+  40%, 60% { transform: scale(1) rotate(25deg); opacity: 0.95; }
+  100% { transform: scale(0.2) rotate(50deg); opacity: 0; }
 }
 
-/* rain: thin, slow streaks, falling twice */
-#lpn-woodpecker-overlay .wpk-fx-rain {
-  top: -20px;
+/* ---- floating particles (50-75%): soft blue orbs rising and drifting ---- */
+#lpn-woodpecker-overlay .wpk-fx-orb {
+  left: var(--x);
+  bottom: -34px;
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, var(--wpk-fx-orb-core), var(--wpk-fx-orb) 42%, transparent 72%);
+  animation-name: wpk-fx-rise-orb;
+}
+@keyframes wpk-fx-rise-orb {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  15% { opacity: var(--o); }
+  50% { transform: translate3d(var(--sw), -190px, 0); }
+  85% { opacity: var(--o); }
+  100% { transform: translate3d(0, -400px, 0); opacity: 0; }
+}
+
+/* ---- storm (below 50%): clouds rolling across the top, wind-driven rain in two depths, a dim flash now and then ---- */
+#lpn-woodpecker-overlay .wpk-fx[data-fx="storm"] { /* the whole panel darkens under the clouds */
+  background: linear-gradient(to bottom, var(--wpk-fx-gloom), transparent 70%);
+}
+#lpn-woodpecker-overlay .wpk-fx-cloud {
+  left: var(--x);
+  top: var(--y);
+  width: 210px;
+  height: 96px;
+  background:
+    radial-gradient(ellipse 34% 58% at 22% 62%, var(--wpk-fx-cloud), transparent 72%),
+    radial-gradient(ellipse 40% 72% at 50% 44%, var(--wpk-fx-cloud), transparent 72%),
+    radial-gradient(ellipse 32% 56% at 80% 62%, var(--wpk-fx-cloud), transparent 72%);
+  animation-name: wpk-fx-drift;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+}
+@keyframes wpk-fx-drift {
+  from { transform: translateX(-26px); }
+  to { transform: translateX(34px); }
+}
+#lpn-woodpecker-overlay .wpk-fx-drop {
+  top: -26px;
+  left: var(--x);
   width: 1px;
-  height: 14px;
+  height: 18px;
   background: linear-gradient(to bottom, transparent, var(--wpk-fx-rain));
-  opacity: 0.8;
-  animation-name: wpk-fx-rain;
-  animation-iteration-count: 2;
+  opacity: 0.7;
+  animation-name: wpk-fx-pour;
 }
-
-@keyframes wpk-fx-rain {
-  from { transform: translateY(0); }
-  to { transform: translateY(360px); }
+#lpn-woodpecker-overlay .wpk-fx-drop.wpk-fx-near {
+  width: 2px;
+  height: 30px;
+  opacity: 0.95;
+}
+@keyframes wpk-fx-pour {
+  from { transform: translate3d(0, 0, 0) rotate(14deg); }
+  to { transform: translate3d(-110px, 470px, 0) rotate(14deg); }
+}
+#lpn-woodpecker-overlay .wpk-fx-lightning {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, var(--wpk-fx-flash), transparent 75%);
+  opacity: 0;
+  animation-name: wpk-fx-flash;
+  animation-duration: 7s;
+  animation-delay: -4s;
+}
+@keyframes wpk-fx-flash { /* a single dim pulse every seven seconds, far below the three-flashes-a-second limit */
+  0%, 90% { opacity: 0; }
+  92% { opacity: 0.22; }
+  100% { opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

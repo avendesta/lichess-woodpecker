@@ -943,72 +943,130 @@ test("the score screen follows the Lichess theme: its background is the training
   }
 });
 
-// ---- The finished-cycle celebration: a quiet decoration behind the score screen ----
+// ---- The finished-cycle scene: decoration behind the score screen, by accuracy, for as long as the score screen shows ----
 
 // A finished cycle of 100 puzzles with `correct` of them right, so the accuracy is exactly `correct`%.
 const finishedWith = (correct) => trainingSeed(["clean", "miss"], { cycleFinishedAt: Date.now() - 500, completedInCycle: 100, totalPuzzles: 100, correctInCycle: correct, incorrectInCycle: 100 - correct, skippedInCycle: 0, timerStartedAt: Date.now() - 60_000 });
+const SCENES = { 100: "fireworks", 99: "sparkles", 85: "sparkles", 76: "sparkles", 75: "particles", 60: "particles", 50: "particles", 49: "storm", 20: "storm", 0: "storm" };
+const MAX_PIECES = 130; // the element budget of a scene (the busiest, fireworks with confetti, is the one that nears it)
 
-test("the score screen celebrates by accuracy: confetti at 100%, sparkles from 70%, nothing from 50%, gentle rain below", async ({ context, seedStorage }) => {
+async function openScene(context, accuracy, id = "clean") {
+  const page = await context.newPage();
+  await gotoTraining(page, `https://lichess.org/training/${id}`);
+  await expect(page.locator("#lpn-woodpecker-overlay .wpk-result")).toBeVisible();
+  return page;
+}
+
+test("the score screen has a scene by accuracy: fireworks at 100%, sparkles above 75%, floating particles from 50% to 75%, a storm below 50%", async ({ context, seedStorage }) => {
   await serveFinishedPuzzles(context);
-  const expected = { 100: "confetti", 99: "sparkles", 85: "sparkles", 70: "sparkles", 69: null, 60: null, 50: null, 49: "rain", 20: "rain", 0: "rain" };
-  for (const [accuracy, kind] of Object.entries(expected)) {
+  for (const [accuracy, kind] of Object.entries(SCENES)) {
     await seedStorage(finishedWith(Number(accuracy)));
-    const page = await context.newPage();
-    await gotoTraining(page, "https://lichess.org/training/clean");
+    const page = await openScene(context, accuracy);
     const overlay = page.locator("#lpn-woodpecker-overlay");
-    await expect(overlay.locator(".wpk-result")).toBeVisible();
     await expect(overlay.locator(".wpk-result-score")).toHaveText(`${accuracy}%`);
     const fx = overlay.locator(".wpk-fx");
-    if (kind) {
-      await expect(fx, `${accuracy}% gets ${kind}`).toHaveAttribute("data-fx", kind);
-      const bits = await fx.locator("span").count();
-      expect(bits, `${kind} has enough pieces to be seen`).toBeGreaterThanOrEqual({ confetti: 24, sparkles: 18, rain: 16 }[kind]);
-      expect(bits, `${kind} stays light`).toBeLessThanOrEqual(60);
-    } else {
-      await expect(fx, `${accuracy}% gets no animation`).toHaveCount(0);
-    }
+    await expect(fx, `${accuracy}% gets ${kind}`).toHaveAttribute("data-fx", kind);
+    const count = (sel) => fx.locator(sel).count();
+    const total = await fx.locator("*").count();
+    expect(total, `${kind} stays within its element budget`).toBeLessThanOrEqual(MAX_PIECES);
+    expect(total, `${kind} is a full scene`).toBeGreaterThanOrEqual(20);
+    // what is in each scene, and only there
+    expect(await count(".wpk-fx-cloud"), `${kind}: clouds`).toBe(kind === "storm" ? 3 : 0);
+    expect(await count(".wpk-fx-lightning"), `${kind}: lightning`).toBe(kind === "storm" ? 1 : 0);
+    expect(await count(".wpk-fx-drop"), `${kind}: rain`).toBeGreaterThanOrEqual(kind === "storm" ? 30 : 0);
+    expect(await count(".wpk-fx-rocket"), `${kind}: rockets`).toBeGreaterThanOrEqual(kind === "fireworks" ? 3 : 0);
+    expect(await count(".wpk-fx-burst"), `${kind}: bursts`).toBe(kind === "fireworks" ? await count(".wpk-fx-rocket") : 0);
+    expect(await count(".wpk-fx-spark"), `${kind}: spark rings`).toBeGreaterThanOrEqual(kind === "fireworks" ? 40 : 0);
+    expect(await count(".wpk-fx-confetti"), `${kind}: confetti`).toBeGreaterThanOrEqual(kind === "fireworks" ? 20 : 0);
+    expect(await count(".wpk-fx-star"), `${kind}: stars`).toBeGreaterThanOrEqual(kind === "sparkles" ? 16 : 0);
+    expect(await count(".wpk-fx-orb"), `${kind}: orbs`).toBeGreaterThanOrEqual(kind === "particles" ? 16 : 0);
+    if (kind !== "storm") expect(await count(".wpk-fx-drop, .wpk-fx-cloud, .wpk-fx-lightning"), `${kind}: nothing of the storm`).toBe(0);
+    if (kind !== "fireworks") expect(await count(".wpk-fx-spark, .wpk-fx-rocket, .wpk-fx-confetti"), `${kind}: nothing of the fireworks`).toBe(0);
     await page.close();
   }
 });
 
-test("the celebration is only decoration: behind the content, never takes a click, kept faint, and it fades away by itself", async ({ context, seedStorage }) => {
+test("the scene is only decoration: behind the content, never takes a click, hidden from screen readers, cheap to animate and gentle", async ({ context, seedStorage }) => {
   await serveFinishedPuzzles(context);
-  for (const [accuracy, kind] of [[100, "confetti"], [85, "sparkles"], [20, "rain"]]) {
+  for (const accuracy of [100, 85, 60, 20]) {
     await seedStorage(finishedWith(accuracy));
-    const page = await context.newPage();
-    await gotoTraining(page, "https://lichess.org/training/clean");
+    const page = await openScene(context, accuracy);
     const overlay = page.locator("#lpn-woodpecker-overlay");
     const fx = overlay.locator(".wpk-fx");
-    await expect(fx).toHaveAttribute("data-fx", kind);
-
-    // hidden from assistive technology, and behind everything that is read or pressed
+    const kind = SCENES[accuracy];
     await expect(fx).toHaveAttribute("aria-hidden", "true");
     const layers = await overlay.evaluate((root) => {
       const fxEl = root.querySelector(".wpk-fx");
       const content = root.querySelector(".wpk-result-title");
       const z = (el) => { for (let n = el; n && n !== fxEl.parentElement.parentElement; n = n.parentElement) { const v = getComputedStyle(n).zIndex; if (v !== "auto") return Number(v); } return 0; };
-      return { fx: Number(getComputedStyle(fxEl).zIndex), content: z(content), events: getComputedStyle(fxEl).pointerEvents, pieceOpacity: Math.max(...[...fxEl.children].map((c) => Number(getComputedStyle(c).opacity))) };
+      return { fx: Number(getComputedStyle(fxEl).zIndex), content: z(content), events: getComputedStyle(fxEl).pointerEvents, overflow: getComputedStyle(fxEl).overflow };
     });
     expect(layers.events, `${kind} takes no clicks`).toBe("none");
     expect(layers.fx, `${kind} sits behind the content`).toBeLessThan(layers.content);
-    expect(layers.pieceOpacity, `${kind} is kept faint`).toBeLessThanOrEqual(0.9);
+    expect(layers.overflow, `${kind} is clipped to the panel`).toBe("hidden");
 
-    // the buttons are really what is under the pointer, while the animation plays
+    // the buttons are really what is under the pointer, while the scene plays
     for (const sel of [".wpk-btn-next", ".wpk-btn-exit", ".wpk-btn-settings"]) {
       const reached = await overlay.locator(sel).evaluate((el, selector) => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!hit && !!hit.closest(selector); }, sel);
       expect(reached, `${sel} is not covered by the ${kind}`).toBe(true);
     }
 
-    // it plays for roughly three to five seconds, then fades and is gone
-    const seconds = parseFloat(await fx.evaluate((el) => getComputedStyle(el).animationDuration));
-    expect(seconds, `${kind} lasts a few seconds`).toBeGreaterThanOrEqual(3);
-    expect(seconds).toBeLessThanOrEqual(5);
-    if (kind === "confetti") await expect(fx).toHaveCount(0, { timeout: 9_000 });
+    // every moving piece loops for as long as the screen is up, and animates only what the GPU does for free
+    const anims = await fx.evaluate((el) => el.getAnimations({ subtree: true }).map((a) => {
+      const t = a.effect.getComputedTiming();
+      return { iterations: t.iterations, props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k)))].filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p)), peak: Math.max(...a.effect.getKeyframes().map((k) => Number(k.opacity ?? 0))), duration: t.duration, el: a.effect.target.className };
+    }));
+    expect(anims.length, `${kind} is really animated`).toBeGreaterThan(10);
+    for (const a of anims) {
+      expect(a.iterations, `${kind}: ${a.el} keeps going`).toBe(Infinity);
+      expect(a.props.every((p) => p === "transform" || p === "opacity"), `${kind}: ${a.el} animates only ${a.props}`).toBe(true);
+      if (/cloud|lightning/.test(String(a.el))) expect(a.peak, `${kind}: big soft shapes (${a.el}) stay translucent, so the text is readable through them`).toBeLessThanOrEqual(0.95);
+    }
+    if (kind === "storm") { // the one flashing thing: a single dim pulse, rarely
+      const flash = anims.filter((a) => String(a.el).includes("wpk-fx-lightning"));
+      expect(flash.length).toBe(1);
+      expect(flash[0].peak, "lightning is dim").toBeLessThanOrEqual(0.25);
+      expect(flash[0].duration, "and at most one pulse every 5 seconds").toBeGreaterThanOrEqual(5000);
+    }
     await page.close();
   }
 });
 
-test("the sparkles are gentle but really visible: big enough, bright enough, and many at once, on both a dark and a light page", async ({ context, seedStorage }) => {
+test("the scene stays for as long as the score screen shows, goes when it is minimized, and comes back when it is reopened", async ({ context, seedStorage }) => {
+  await serveFinishedPuzzles(context);
+  await seedStorage(finishedWith(100));
+  const page = await openScene(context, 100);
+  const overlay = page.locator("#lpn-woodpecker-overlay");
+  await expect(overlay.locator(".wpk-fx")).toHaveAttribute("data-fx", "fireworks");
+  await page.waitForTimeout(7000); // the old scene had faded and gone by now
+  await expect(overlay.locator(".wpk-fx")).toHaveCount(1);
+  expect(await overlay.locator(".wpk-fx").evaluate((el) => el.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length), "still moving").toBeGreaterThan(20);
+
+  await overlay.locator(".wpk-btn-minimize").click();
+  await expect(overlay.locator(".wpk-collapsed")).toBeVisible();
+  await expect(overlay.locator(".wpk-fx"), "no scene in the minimized pill").toHaveCount(0);
+  await overlay.locator(".wpk-collapsed").click();
+  await expect(overlay.locator(".wpk-result")).toBeVisible();
+  await expect(overlay.locator(".wpk-fx"), "back, exactly one").toHaveCount(1);
+  await expect(overlay.locator(".wpk-fx")).toHaveAttribute("data-fx", "fireworks");
+  await page.close();
+});
+
+test("the scene respects reduced motion: nothing is created at all", async ({ context, seedStorage }) => {
+  await serveFinishedPuzzles(context);
+  for (const accuracy of [100, 85, 60, 20]) {
+    await seedStorage(finishedWith(accuracy));
+    const calm = await context.newPage();
+    await calm.emulateMedia({ reducedMotion: "reduce" });
+    await gotoTraining(calm, "https://lichess.org/training/clean");
+    await expect(calm.locator("#lpn-woodpecker-overlay .wpk-result")).toBeVisible();
+    await calm.waitForTimeout(400);
+    await expect(calm.locator("#lpn-woodpecker-overlay .wpk-fx"), `${accuracy}%: no animation for people who asked for none`).toHaveCount(0);
+    await calm.close();
+  }
+});
+
+test("the sparkles are really visible: stars big enough with a glow, many showing at once, on both a dark and a light page", async ({ context, seedStorage }) => {
   await serveFinishedPuzzles(context);
   for (const id of ["darkpage", "lightpage"]) {
     await seedStorage({ ...finishedWith(85), ...trainingSeed([id, "clean"], { cycleFinishedAt: Date.now() - 300, completedInCycle: 100, totalPuzzles: 100, correctInCycle: 85, incorrectInCycle: 15, skippedInCycle: 0, timerStartedAt: Date.now() - 60_000 }) });
@@ -1016,45 +1074,17 @@ test("the sparkles are gentle but really visible: big enough, bright enough, and
     await gotoTraining(page, `https://lichess.org/training/${id}`);
     const fx = page.locator("#lpn-woodpecker-overlay .wpk-fx");
     await expect(fx).toHaveAttribute("data-fx", "sparkles");
-
-    // each star is big enough to notice (a speck of 10px dust is not), and drawn in a colour that stands out from the panel
-    const stars = await fx.locator("span > i").evaluateAll((els) => els.map((el) => Math.min(el.offsetWidth, el.offsetHeight))); // layout size: the grow-in scale does not skew it
-    expect(Math.min(...stars), `${id}: smallest star`).toBeGreaterThanOrEqual(13);
-    expect(Math.max(...stars), `${id}: largest star`).toBeLessThanOrEqual(24); // gentle, not gaudy
-    const look = await fx.locator("span").first().evaluate((el) => ({ glow: getComputedStyle(el).filter, star: getComputedStyle(el.querySelector("i")).backgroundColor }));
-    expect(look.glow, `${id}: a soft glow lifts them off the panel`).toMatch(/drop-shadow/);
-
-    // and at any moment several are clearly showing, not just one or two faint ones
+    const stars = await fx.locator(".wpk-fx-star > i").evaluateAll((els) => els.map((el) => Math.min(el.offsetWidth, el.offsetHeight)));
+    expect(Math.min(...stars), `${id}: smallest star`).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...stars), `${id}: largest star`).toBeGreaterThanOrEqual(24); // a few big ones
+    expect(Math.max(...stars), `${id}: largest star`).toBeLessThanOrEqual(34);
+    expect(await fx.locator(".wpk-fx-star").first().evaluate((el) => getComputedStyle(el).filter), `${id}: a soft glow lifts them off the panel`).toMatch(/drop-shadow/);
     await expect.poll(
-      () => fx.locator("span").evaluateAll((els) => els.filter((el) => Number(getComputedStyle(el).opacity) > 0.5).length),
+      () => fx.locator(".wpk-fx-star").evaluateAll((els) => els.filter((el) => Number(getComputedStyle(el).opacity) > 0.5).length),
       { message: `${id}: sparkles clearly showing at once`, timeout: 4_000, intervals: [200] },
     ).toBeGreaterThanOrEqual(6);
     await page.close();
   }
-});
-
-test("the celebration respects reduced motion, and does not replay when the overlay is minimized and reopened", async ({ context, seedStorage }) => {
-  await serveFinishedPuzzles(context);
-  await seedStorage(finishedWith(100));
-
-  const calm = await context.newPage();
-  await calm.emulateMedia({ reducedMotion: "reduce" });
-  await gotoTraining(calm, "https://lichess.org/training/clean");
-  await expect(calm.locator("#lpn-woodpecker-overlay .wpk-result")).toBeVisible();
-  await calm.waitForTimeout(500);
-  await expect(calm.locator("#lpn-woodpecker-overlay .wpk-fx"), "no animation for people who asked for none").toHaveCount(0);
-  await calm.close();
-
-  const page = await context.newPage();
-  await gotoTraining(page, "https://lichess.org/training/clean");
-  const overlay = page.locator("#lpn-woodpecker-overlay");
-  await expect(overlay.locator(".wpk-fx")).toHaveAttribute("data-fx", "confetti");
-  await overlay.locator(".wpk-btn-minimize").click();
-  await expect(overlay.locator(".wpk-collapsed")).toBeVisible();
-  await overlay.locator(".wpk-collapsed").click();
-  await expect(overlay.locator(".wpk-result")).toBeVisible();
-  await page.waitForTimeout(500);
-  expect(await overlay.locator(".wpk-fx").count(), "reopening does not start it again").toBe(0); // checked right now: a replay would fade out and make a patient check pass
 });
 
 test("score screen buttons have their labels centered under Lichess's own button styles", async ({ context, seedStorage }) => {
