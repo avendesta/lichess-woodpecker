@@ -314,3 +314,19 @@ test("the gate never wedges work: broken input, an unknown mode and a directory 
   expect(allowed(run(plain, "gate", commit())), "not a git repo").toBe(true);
   expect(run(plain, "mark", reviewerDone()).code, "mark in a non-repo").toBe(0);
 });
+
+test("every script, stylesheet and page at the repo root is code, so a new file (shared.js, a later one) cannot dodge the review", async () => {
+  const repo = makeRepo();
+  run(repo, "mark", reviewerDone());
+  for (const f of ["shared.js", "options-stats.css", "newpage.html", "a-brand-new-script.js"]) {
+    repo.write(f, "x\n");
+    expect(denied(run(repo, "gate", commit())), `${f} needs a review`).toBe(true);
+    run(repo, "mark", reviewerDone()); // reviewed: now allowed
+    expect(allowed(run(repo, "gate", commit())), `${f} is allowed once reviewed`).toBe(true);
+  }
+  // deeper folders and other kinds of file are still not code
+  repo.write("docs/page.html", "<p>docs</p>\n");
+  repo.write("docs/store/notes.js", "// a listing\n");
+  repo.write("icons/logo.svg", "<svg/>\n");
+  expect(allowed(run(repo, "gate", commit()))).toBe(true);
+});

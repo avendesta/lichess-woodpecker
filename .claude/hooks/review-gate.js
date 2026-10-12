@@ -32,9 +32,9 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 
-// What counts as code: what ships, the tests and scripts that guard it, the pipeline, and the files that make up this gate and
+// What counts as code: every script, stylesheet and page at the repo root (so a new file cannot be forgotten), what ships, the tests and scripts that guard it, the pipeline, and the files that make up this gate and
 // its reviewer. Docs, listings, images and lock files do not.
-const CODE = /^(background\.js|browser-polyfill\.js|generate-icons\.js|content\.(js|css)|popup\.(html|js|css)|options\.(html|js|css)|manifest(-firefox)?\.json|package\.json|playwright\.config\.js|scripts\/.+|tests\/.+\.js|\.github\/workflows\/.+|\.mcp\.json|\.claude\/(settings\.json|playwright-mcp\.json|hooks\/.+|agents\/.+|skills\/.+))$/;
+const CODE = /^([^/]+\.(js|css|html)|manifest(-firefox)?\.json|package\.json|playwright\.config\.js|scripts\/.+|tests\/.+\.js|\.github\/workflows\/.+|\.mcp\.json|\.claude\/(settings\.json|playwright-mcp\.json|hooks\/.+|agents\/.+|skills\/.+))$/;
 const VERSIONED = /^(manifest(-firefox)?|package)\.json$/;
 const STALE_MS = 30 * 60 * 1000; // a recorded start older than this is ignored
 
