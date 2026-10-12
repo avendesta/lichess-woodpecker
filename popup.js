@@ -31,7 +31,7 @@ let currentPuzzleId = null; // read from the active tab's DOM; null when it is n
 let currentTabId = null; // active tab ID, needed for DOM extraction
 let toastTimeout = null;
 
-let data = { categories: {}, meta: {}, paused: {} }; // what is stored: the categories, their metadata and the parked paused cycles
+let data = { categories: {}, meta: {}, paused: {}, running: null }; // what is stored: the categories, their metadata and the parked paused cycles
 let query = ""; // the search box
 let saving = false;
 
@@ -143,8 +143,10 @@ function extractPuzzleIdFromPage() {
  * ============================================================ */
 async function loadData() {
   const d = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
-  const { pausedCycles } = await browser.storage.local.get("pausedCycles");
-  data = { categories: (d && d.categories) || {}, meta: (d && d.meta) || {}, paused: pausedCycles || {} };
+  const { pausedCycles, trainingSession } = await browser.storage.local.get(["pausedCycles", "trainingSession"]);
+  // the cycle being trained now (not paused, not on its score screen): its bolt is drawn gold
+  const running = trainingSession && !trainingSession.pausedAt && !trainingSession.cycleFinishedAt && typeof trainingSession.category === "string" ? trainingSession.category : null;
+  data = { categories: (d && d.categories) || {}, meta: (d && d.meta) || {}, paused: pausedCycles || {}, running };
 }
 
 function categoryNames() {
@@ -207,6 +209,9 @@ function renderFooter() {
   const total = Object.values(data.categories).reduce((n, puzzles) => n + puzzles.length, 0);
   const waiting = data.paused["All Categories"] ? " (a paused cycle is waiting)" : "";
   setDisabled(btnTrainAll, total === 0, total === 0 ? "Save a puzzle before training." : `Train all categories${waiting}`);
+  const running = data.running === "All Categories" && total > 0;
+  btnTrainAll.classList.toggle("is-running", running);
+  if (running) btnTrainAll.title = "Training all categories now";
 }
 
 function visibleNames() {
@@ -292,6 +297,9 @@ function syncRow(row) {
   const train = row.querySelector(".btn-train");
   train.setAttribute("aria-label", `Train ${name}`);
   setDisabled(train, puzzles.length === 0, puzzles.length === 0 ? "Save a puzzle before training." : "Train this category");
+  const running = data.running === name && puzzles.length > 0;
+  train.classList.toggle("is-running", running);
+  if (running) train.title = "Training this category now";
 }
 
 function syncRows() {

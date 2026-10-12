@@ -895,3 +895,26 @@ test("two categories can each be paused and picked up again, one at a time", asy
   expect((await read("trainingSession")).category).toBe("Forks");
   expect((await read("lichessNotes")).meta.trainingStats).toEqual(oldStats); // no statistics were touched along the way
 });
+
+test("the cycle being trained now has a gold bolt in the popup (its row, or Train all); paused, finished and other rows do not", async ({ extPage, seedStorage }) => {
+  const GOLD = "rgb(251, 191, 36)";
+  const session = (extra) => ({ trainingSession: { category: "Pins", queue: ["https://lichess.org/training/abc12"], currentIndex: 0, totalPuzzles: 1, completedInCycle: 0, cycleCount: 1, timerStartedAt: 1, ownerTabId: null, ...extra } });
+  const bolt = (name) => row(extPage, name).locator(".btn-train svg");
+  const colour = (loc) => loc.evaluate((e) => getComputedStyle(e).color);
+  const cats = { Pins: ["abc12"], Forks: ["def34"] };
+
+  await openPopup({ extPage, seedStorage }, { ...notes(cats), ...session({}) });
+  expect(await colour(bolt("Pins"))).toBe(GOLD);
+  expect(await colour(bolt("Forks"))).not.toBe(GOLD);
+  await expect(row(extPage, "Pins").locator(".btn-train")).toHaveAttribute("title", "Training this category now");
+  await expect(extPage.locator("#btn-train-all")).not.toHaveClass(/is-running/);
+
+  await openPopup({ extPage, seedStorage }, { ...notes(cats), ...session({ category: "All Categories" }) });
+  expect(await colour(extPage.locator("#btn-train-all svg"))).toBe(GOLD);
+  expect(await colour(bolt("Pins"))).not.toBe(GOLD);
+
+  await openPopup({ extPage, seedStorage }, { ...notes(cats), ...session({ cycleFinishedAt: 5 }) }); // score screen
+  expect(await colour(bolt("Pins"))).not.toBe(GOLD);
+  await openPopup({ extPage, seedStorage }, { ...notes(cats), ...session({ pausedAt: 5 }) }); // paused (old shape)
+  expect(await colour(bolt("Pins"))).not.toBe(GOLD);
+});

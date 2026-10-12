@@ -734,3 +734,7 @@ input:focus-visible {
     animation: none !important;
   }
 }
+
+/* the cycle being trained now: a gold bolt */
+.btn-train.is-running svg,
+.btn-train-all.is-running svg { color: #fbbf24; fill: rgba(251, 191, 36, 0.35); }
