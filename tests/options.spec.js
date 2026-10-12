@@ -879,8 +879,8 @@ test("Train on the options page continues the category's paused cycle instead of
   const opened = context.waitForEvent("page", { predicate: (p) => p !== page });
   const pinsCard = page.locator(".category-card", { hasText: "Pins" });
   await expect(pinsCard.locator(".paused-tag")).toHaveText("⏸ 1/2");
-  const resume = pinsCard.getByRole("button", { name: "Resume this category's paused cycle" });
-  await expect(resume).toHaveText("Resume");
+  const resume = pinsCard.getByRole("button", { name: "Train this category" });
+  await expect(resume).toHaveText("Train"); // still says Train: the tag shows it is paused, and Train continues it
   await expect(page.locator(".category-card", { hasText: "Empty" }).locator(".paused-tag")).toHaveCount(0); // only the paused category
   await resume.click();
   const tab = await opened;
@@ -906,14 +906,14 @@ test("a double-click on the lightning button opens one tab, not two", async ({ c
   expect(context.pages().length).toBe(before + 1);
 });
 
-test("a cycle paused elsewhere turns Train into Resume with its tag live, and both labels are readable", async ({ context, extensionUrl, seedStorage }) => {
+test("a cycle paused elsewhere shows its tag live and the button still says Train; both are readable", async ({ context, extensionUrl, seedStorage }) => {
   await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb"] }) });
   const page = await optionsPage({ context, extensionUrl });
   const btn = page.locator(".category-card .btn-train");
   await expect(btn).toHaveText("Train");
   await expect(page.locator(".paused-tag")).toHaveCount(0);
   await page.evaluate(() => chrome.storage.local.set({ pausedCycles: { Pins: { category: "Pins", queue: ["https://lichess.org/training/aaaaa", "https://lichess.org/training/bbbbb"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, cycleCount: 1, timerStartedAt: 1, pausedAt: 2 } } }));
-  await expect(btn).toHaveText("Resume"); // no reload
+  await expect(btn).toHaveText("Train"); // never Resume
   await expect(page.locator(".paused-tag")).toHaveText("⏸ 1/2");
   // WCAG contrast of the label on its own button over the card's dark surface (4.5:1)
   const ratio = (a, b) => { const L = (c) => { const [r, g, bl] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; }; const [x, y] = [L(a), L(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
@@ -971,4 +971,69 @@ test("the category being trained now has a gold bolt; paused, finished and other
   await expect(bolt("Forks")).not.toHaveClass(/is-running/);
   await page.evaluate((s) => chrome.storage.local.set({ trainingSession: s }), run({ pausedAt: 5 })); // paused (old shape)
   await expect(bolt("Pins")).not.toHaveClass(/is-running/);
+});
+
+test("New Category and Train all categories sit above a full-width search; Train all runs one cycle over every different puzzle", async ({ context, extensionUrl, seedStorage, getStorage }) => {
+  await context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: FAKE_PUZZLE }));
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb"], Forks: ["bbbbb", "ccccc"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const box = (sel) => page.locator(sel).boundingBox();
+  const [all, add, search, list] = await Promise.all([box("#btn-train-all"), box("#btn-new-category"), box("#search-input"), box("#main-content")]);
+  expect(all.y, "the buttons are above the search").toBeLessThan(search.y);
+  expect(Math.abs(all.y - add.y)).toBeLessThan(4); // on one row
+  expect(all.x).toBeLessThan(add.x); // Train all, then New Category
+  expect(add.x + add.width, "right-aligned with the search box's right edge").toBeCloseTo(search.x + search.width, -1);
+  expect(search.width, "the search takes the whole row").toBeGreaterThan(add.x + add.width - search.x - 5);
+  expect(search.y + search.height).toBeLessThan(list.y);
+
+  const opened = context.waitForEvent("page", { predicate: (p) => p !== page });
+  await page.locator("#btn-train-all").click();
+  await opened;
+  const s = await getStorage("trainingSession");
+  expect(s.category).toBe("All Categories");
+  expect([...s.queue].map((u) => u.slice(-5)).sort()).toEqual(["aaaaa", "bbbbb", "ccccc"]); // bbbbb is in two categories and counted once
+});
+
+test("Train all is off with nothing saved, still says Train all categories for a paused all-categories cycle, and its bolt is gold while it runs", async ({ context, extensionUrl, seedStorage }) => {
+  await seedStorage({ ...notes({ Empty: [] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const all = page.locator("#btn-train-all");
+  await expect(all).toBeDisabled();
+  await expect(all).toHaveText("Train all categories");
+
+  const cyc = { category: "All Categories", queue: ["https://lichess.org/training/aaaaa"], currentIndex: 0, totalPuzzles: 1, completedInCycle: 0, cycleCount: 1, timerStartedAt: 1, ownerTabId: null };
+  await page.evaluate((c) => chrome.storage.local.set({ lichessNotes: { categories: { Pins: ["aaaaa"] }, meta: { version: 1, updatedAt: 0 } }, trainingSession: c }), cyc);
+  await expect(all).toBeEnabled();
+  await expect(all).toHaveClass(/is-running/);
+  expect(await all.locator("svg").evaluate((e) => getComputedStyle(e).color)).toBe("rgb(251, 191, 36)");
+
+  await page.evaluate((c) => chrome.storage.local.set({ trainingSession: null, pausedCycles: { "All Categories": { ...c, pausedAt: 2 } } }), cyc);
+  await expect(all).toHaveText("Train all categories");
+  await expect(all).not.toHaveClass(/is-running/);
+  await expect(all).toHaveAttribute("title", /Continue the paused cycle/);
+});
+
+test("searching opens the matching categories, clearing the search closes them, and a sync mid-search keeps what you toggled", async ({ context, extensionUrl, seedStorage }) => {
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "abcde"], Forks: ["fffff"], Skewers: ["abxyz"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const card = (n) => page.locator(".category-card", { hasText: n });
+  await expect(page.locator(".category-card.collapsed")).toHaveCount(3); // all closed to start with
+  await page.locator("#search-input").fill("ab");
+  await expect(page.locator(".category-card")).toHaveCount(2); // Pins, Skewers
+  await expect(page.locator(".category-card.collapsed")).toHaveCount(0); // both open, so the matches show
+  await expect(card("Pins").locator(".puzzle-chip-id", { hasText: "abcde" })).toBeVisible();
+
+  await page.locator("#search-input").fill("abc"); // narrowing the search opens again whatever still matches
+  await expect(page.locator(".category-card")).toHaveCount(1);
+  await expect(card("Pins")).not.toHaveClass(/collapsed/);
+
+  await card("Pins").locator(".category-card-header").click(); // closed by hand...
+  await expect(card("Pins")).toHaveClass(/collapsed/);
+  await page.evaluate(() => chrome.storage.local.get("lichessNotes").then(({ lichessNotes }) => { lichessNotes.categories.Pins.push("zzzzz"); lichessNotes.meta.updatedAt = 1; return chrome.storage.local.set({ lichessNotes }); }));
+  await expect(card("Pins")).toContainText("3 puzzles"); // ...a sync rebuilt the list...
+  await expect(card("Pins")).toHaveClass(/collapsed/); // ...and left it closed
+
+  await page.locator("#search-input").fill("");
+  await expect(page.locator(".category-card")).toHaveCount(3);
+  await expect(page.locator(".category-card.collapsed")).toHaveCount(3); // back to closed
 });

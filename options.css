@@ -251,13 +251,17 @@ body {
   flex-wrap: wrap;
 }
 
-.toolbar-left {
-  flex: 1;
-  min-width: 200px;
+.toolbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .search-input {
   width: 100%;
+  box-sizing: border-box;
   background: var(--bg);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border);
@@ -1001,7 +1005,7 @@ body {
   display: none !important;
 }
 
-/* Train (neutral navy, subtle border) and Resume (muted amber) on a category row, then a divider before Rename and Delete */
+/* Train (neutral navy, subtle border) on a category row, then a divider before Rename and Delete */
 .btn-train {
   display: flex;
   align-items: center;
@@ -1018,12 +1022,6 @@ body {
   transition: background 0.1s, border-color 0.1s;
 }
 .btn-train:hover { background: rgba(125, 165, 235, 0.17); border-color: rgba(125, 165, 235, 0.35); }
-.btn-train.is-resume {
-  color: #f5c26b;
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.4);
-}
-.btn-train.is-resume:hover { background: rgba(245, 158, 11, 0.2); border-color: rgba(245, 158, 11, 0.6); }
 .btn-train:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .actions-divider { width: 1px; align-self: stretch; margin: 4px 6px; background: var(--border); }
 .category-card-actions { align-items: center; }

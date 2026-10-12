@@ -59,6 +59,8 @@ let allStats = []; // every recorded cycle, newest first
 let statsShown = STATS_PAGE;
 
 let toastTimeout = null;
+const ALL = "All Categories"; // the name the combined run is stored under (a category may not use it)
+let renderedFilter = ""; // the search text the list was last built for
 let renderedList = null; // what the category list currently shows, to skip rebuilding it when nothing it shows has changed
 let modalMode = null; // "create" | "rename"
 let modalRenameOld = null; // old name when renaming
@@ -113,7 +115,13 @@ async function refreshUI() {
   const { pausedCycles, trainingSession } = await browser.storage.local.get(["pausedCycles", "trainingSession"]);
   // the category being trained right now (not paused, not on its score screen): its Train button shows a gold bolt
   const running = trainingSession && !trainingSession.pausedAt && !trainingSession.cycleFinishedAt && typeof trainingSession.category === "string" ? trainingSession.category : null;
-  const parked = pausedCycles || {}; // category -> its paused cycle: shown as a tag, and the Train button becomes Resume
+  const parked = pausedCycles || {}; // category -> its paused cycle: shown as a tag, and pressing Train continues it
+  const everything = new Set(Object.values(categories).flat());
+  const trainAll = document.getElementById("btn-train-all");
+  const allWaiting = Object.hasOwn(parked, ALL) && Number.isFinite(parked[ALL].totalPuzzles) ? parked[ALL] : null;
+  paintTrainButton(trainAll, allWaiting, running === ALL, "all categories");
+  trainAll.disabled = everything.size === 0;
+  if (everything.size === 0) trainAll.title = "Save a puzzle before training.";
   const catNames = Object.keys(categories).sort((a, b) =>
     a.localeCompare(b, undefined, { sensitivity: "base" })
   );
@@ -126,6 +134,10 @@ async function refreshUI() {
   const shown = JSON.stringify([categories, filter, parked, running]);
   if (shown === renderedList) return;
   renderedList = shown;
+  // Searching opens the categories that match, so the puzzles that matched are visible; clearing the search closes them again.
+  // Only a change of the search text decides this: a sync while you search leaves whatever you opened or closed by hand alone.
+  const filterChanged = filter !== renderedFilter;
+  renderedFilter = filter;
   const open = new Set([...mainContent.querySelectorAll(".category-card:not(.collapsed) h3")].map((h) => h.textContent));
 
   mainContent.innerHTML = "";
@@ -150,7 +162,7 @@ async function refreshUI() {
     }
 
     anyVisible = true;
-    const card = buildCategoryCard(catName, puzzles, totalCount, open.has(catName), Object.hasOwn(parked, catName) ? parked[catName] : null, catName === running);
+    const card = buildCategoryCard(catName, puzzles, totalCount, filterChanged ? filter !== "" : open.has(catName), Object.hasOwn(parked, catName) ? parked[catName] : null, catName === running);
     mainContent.appendChild(card);
   });
 
@@ -174,6 +186,22 @@ function renderTotals(categories) {
   document.getElementById("stat-categories-label").textContent = names.length === 1 ? "Category" : "Categories";
   document.getElementById("stat-puzzles").textContent = puzzles;
   document.getElementById("stat-puzzles-label").textContent = puzzles === 1 ? "Puzzle" : "Puzzles";
+}
+
+/**
+ * The Train button of a category row and of "Train all categories". It always says Train: a paused cycle shows in the row's
+ * `⏸ n/total` tag, and pressing Train continues it. A gold bolt marks the cycle running now. `what` finishes the sentences:
+ * "this category" or "all categories".
+ */
+const BOLT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+function paintTrainButton(btn, waiting, isRunning, what) {
+  btn.classList.toggle("is-running", isRunning);
+  btn.innerHTML = BOLT + "<span></span>";
+  btn.querySelector("span").textContent = what === "all categories" ? "Train all categories" : "Train";
+  btn.setAttribute("aria-label", `Train ${what}`);
+  if (isRunning) btn.title = `Training ${what} now`;
+  else if (waiting) btn.title = `Continue the paused cycle: ${waiting.completedInCycle || 0} of ${waiting.totalPuzzles} puzzles done`;
+  else btn.title = `Train ${what}`;
 }
 
 /* ============================================================
@@ -203,20 +231,7 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false, pause
   header.querySelector("h3").textContent = catName;
   const trainBtn = header.querySelector(".btn-train");
   const waiting = paused && Number.isFinite(paused.totalPuzzles) ? paused : null;
-  if (waiting) {
-    trainBtn.classList.add("is-resume");
-    trainBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Resume</span>';
-    trainBtn.setAttribute("aria-label", "Resume this category's paused cycle");
-    trainBtn.title = `Paused: ${waiting.completedInCycle || 0} of ${waiting.totalPuzzles} puzzles done in cycle ${waiting.cycleCount || 1}`;
-  } else {
-    trainBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Train</span>';
-    trainBtn.setAttribute("aria-label", "Train this category");
-    trainBtn.title = "Train this category";
-    if (isRunning) {
-      trainBtn.classList.add("is-running");
-      trainBtn.title = "Training this category now";
-    }
-  }
+  paintTrainButton(trainBtn, waiting, isRunning, "this category");
   if (waiting) {
     const tag = document.createElement("span");
     tag.className = "paused-tag";
@@ -275,6 +290,7 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false, pause
  * ============================================================ */
 function bindEvents() {
   // New category button
+  document.getElementById("btn-train-all").addEventListener("click", () => trainCategory(ALL));
   btnNewCategory.addEventListener("click", () => openModal("create"));
 
   // Search
@@ -874,7 +890,8 @@ async function startCategory(name) {
     return;
   }
   const categories = all.categories || {};
-  if (!Object.hasOwn(categories, name) || categories[name].length === 0) {
+  const pool = name === ALL ? [...new Set(Object.values(categories).flat())] : Object.hasOwn(categories, name) ? categories[name] : [];
+  if (pool.length === 0) {
     showToast("No puzzles to train.", "warn");
     return;
   }
@@ -895,7 +912,7 @@ async function startCategory(name) {
     session.timerStartedAt += Date.now() - session.pausedAt; // paused time stays out of the clock
     delete session.pausedAt;
   } else {
-    const ids = [...new Set(categories[name])];
+    const ids = [...new Set(pool)];
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
