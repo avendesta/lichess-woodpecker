@@ -1036,3 +1036,4 @@ body {
   font-size: 12px;
   font-weight: 600;
 }
+.btn-train.is-running svg { color: #fbbf24; fill: rgba(251, 191, 36, 0.35); } /* the cycle being trained now: a gold bolt */

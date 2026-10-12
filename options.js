@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 let syncTimer = null;
 function watchStorage() {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !(changes.lichessNotes || changes.pausedCycles)) return;
+    if (area !== "local" || !(changes.lichessNotes || changes.pausedCycles || changes.trainingSession)) return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(async () => {
       await refreshUI();
@@ -110,7 +110,9 @@ function showVersion() {
 async function refreshUI() {
   const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
   const categories = data.categories || {};
-  const { pausedCycles } = await browser.storage.local.get("pausedCycles");
+  const { pausedCycles, trainingSession } = await browser.storage.local.get(["pausedCycles", "trainingSession"]);
+  // the category being trained right now (not paused, not on its score screen): its Train button shows a gold bolt
+  const running = trainingSession && !trainingSession.pausedAt && !trainingSession.cycleFinishedAt && typeof trainingSession.category === "string" ? trainingSession.category : null;
   const parked = pausedCycles || {}; // category -> its paused cycle: shown as a tag, and the Train button becomes Resume
   const catNames = Object.keys(categories).sort((a, b) =>
     a.localeCompare(b, undefined, { sensitivity: "base" })
@@ -121,7 +123,7 @@ async function refreshUI() {
 
   // Rebuild the list only when what it shows has changed (a finished training cycle, for instance, changes nothing in it),
   // and put back whichever categories were open, so syncing never folds away what someone is reading.
-  const shown = JSON.stringify([categories, filter, parked]);
+  const shown = JSON.stringify([categories, filter, parked, running]);
   if (shown === renderedList) return;
   renderedList = shown;
   const open = new Set([...mainContent.querySelectorAll(".category-card:not(.collapsed) h3")].map((h) => h.textContent));
@@ -148,7 +150,7 @@ async function refreshUI() {
     }
 
     anyVisible = true;
-    const card = buildCategoryCard(catName, puzzles, totalCount, open.has(catName), Object.hasOwn(parked, catName) ? parked[catName] : null);
+    const card = buildCategoryCard(catName, puzzles, totalCount, open.has(catName), Object.hasOwn(parked, catName) ? parked[catName] : null, catName === running);
     mainContent.appendChild(card);
   });
 
@@ -177,7 +179,7 @@ function renderTotals(categories) {
 /* ============================================================
  * Build a category card DOM element
  * ============================================================ */
-function buildCategoryCard(catName, puzzles, totalCount, expanded = false, paused = null) {
+function buildCategoryCard(catName, puzzles, totalCount, expanded = false, paused = null, isRunning = false) {
   const card = document.createElement("div");
   card.className = expanded ? "category-card" : "category-card collapsed";
 
@@ -210,6 +212,10 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false, pause
     trainBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Train</span>';
     trainBtn.setAttribute("aria-label", "Train this category");
     trainBtn.title = "Train this category";
+    if (isRunning) {
+      trainBtn.classList.add("is-running");
+      trainBtn.title = "Training this category now";
+    }
   }
   if (waiting) {
     const tag = document.createElement("span");

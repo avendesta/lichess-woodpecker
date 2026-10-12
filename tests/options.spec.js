@@ -952,3 +952,23 @@ test("the accordion slides to the body's real height (no 500px cap, no dead time
   expect(await h(small)).toBe(0);
   expect(await small.locator(".accordion-arrow").evaluate((e) => getComputedStyle(e).transform)).not.toBe(arrowOpen); // it turned back
 });
+
+test("the category being trained now has a gold bolt; paused, finished and other categories do not, and it follows live", async ({ context, extensionUrl, seedStorage }) => {
+  const run = (extra = {}) => ({ category: "Pins", queue: ["https://lichess.org/training/aaaaa"], currentIndex: 0, totalPuzzles: 1, completedInCycle: 0, cycleCount: 1, timerStartedAt: 1, ownerTabId: null, ...extra });
+  await seedStorage({ ...notes({ Pins: ["aaaaa"], Forks: ["bbbbb"] }), trainingSession: run() });
+  const page = await optionsPage({ context, extensionUrl });
+  const bolt = (name) => page.locator(".category-card", { hasText: name }).locator(".btn-train");
+  const colour = (name) => bolt(name).locator("svg").evaluate((e) => getComputedStyle(e).color);
+  await expect(bolt("Pins")).toHaveClass(/is-running/);
+  await expect(bolt("Forks")).not.toHaveClass(/is-running/);
+  expect(await colour("Pins")).toBe("rgb(251, 191, 36)");
+  expect(await colour("Forks")).not.toBe("rgb(251, 191, 36)");
+
+  await page.evaluate((s) => chrome.storage.local.set({ trainingSession: s }), run({ category: "Forks" })); // handed to another category
+  await expect(bolt("Forks")).toHaveClass(/is-running/);
+  await expect(bolt("Pins")).not.toHaveClass(/is-running/);
+  await page.evaluate((s) => chrome.storage.local.set({ trainingSession: s }), run({ category: "Forks", cycleFinishedAt: 5 })); // score screen: finished
+  await expect(bolt("Forks")).not.toHaveClass(/is-running/);
+  await page.evaluate((s) => chrome.storage.local.set({ trainingSession: s }), run({ pausedAt: 5 })); // paused (old shape)
+  await expect(bolt("Pins")).not.toHaveClass(/is-running/);
+});
