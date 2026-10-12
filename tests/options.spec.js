@@ -852,6 +852,7 @@ test("the lightning button trains a category in a new tab, which owns the sessio
   const train = card.getByRole("button", { name: "Train this category" });
   await expect(train).toBeVisible();
   // between the icons: Train, then Rename, then Delete
+  await expect(train).toHaveText("Train");
   const order = await card.locator(".category-card-actions button").evaluateAll((bs) => bs.map((b) => b.className.match(/btn-(train|rename|delete-cat)/)[1]));
   expect(order).toEqual(["train", "rename", "delete-cat"]);
 
@@ -876,7 +877,12 @@ test("Train on the options page continues the category's paused cycle instead of
   const page = await optionsPage({ context, extensionUrl });
 
   const opened = context.waitForEvent("page", { predicate: (p) => p !== page });
-  await page.locator(".category-card", { hasText: "Pins" }).getByRole("button", { name: "Train this category" }).click();
+  const pinsCard = page.locator(".category-card", { hasText: "Pins" });
+  await expect(pinsCard.locator(".paused-tag")).toHaveText("⏸ 1/2");
+  const resume = pinsCard.getByRole("button", { name: "Resume this category's paused cycle" });
+  await expect(resume).toHaveText("Resume");
+  await expect(page.locator(".category-card", { hasText: "Empty" }).locator(".paused-tag")).toHaveCount(0); // only the paused category
+  await resume.click();
   const tab = await opened;
   await expect(tab).toHaveURL("https://lichess.org/training/bbbbb"); // where it was paused
   const s = await getStorage("trainingSession");
@@ -898,4 +904,51 @@ test("a double-click on the lightning button opens one tab, not two", async ({ c
   await page.locator(".category-card", { hasText: "Pins" }).getByRole("button", { name: "Train this category" }).dblclick();
   await page.waitForTimeout(1500);
   expect(context.pages().length).toBe(before + 1);
+});
+
+test("a cycle paused elsewhere turns Train into Resume with its tag live, and both labels are readable", async ({ context, extensionUrl, seedStorage }) => {
+  await seedStorage({ ...notes({ Pins: ["aaaaa", "bbbbb"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const btn = page.locator(".category-card .btn-train");
+  await expect(btn).toHaveText("Train");
+  await expect(page.locator(".paused-tag")).toHaveCount(0);
+  await page.evaluate(() => chrome.storage.local.set({ pausedCycles: { Pins: { category: "Pins", queue: ["https://lichess.org/training/aaaaa", "https://lichess.org/training/bbbbb"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, cycleCount: 1, timerStartedAt: 1, pausedAt: 2 } } }));
+  await expect(btn).toHaveText("Resume"); // no reload
+  await expect(page.locator(".paused-tag")).toHaveText("⏸ 1/2");
+  // WCAG contrast of the label on its own button over the card's dark surface (4.5:1)
+  const ratio = (a, b) => { const L = (c) => { const [r, g, bl] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; }; const [x, y] = [L(a), L(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+  for (const sel of [".btn-train", ".paused-tag"]) {
+    const [fg, bg] = await page.locator(`.category-card ${sel}`).first().evaluate((el) => [getComputedStyle(el).color, getComputedStyle(document.querySelector(".category-card")).backgroundColor].map((c) => c.match(/[\d.]+/g).slice(0, 3).map(Number)));
+    expect(ratio(fg, bg), `${sel} contrast`).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+test("the accordion slides to the body's real height (no 500px cap, no dead time) and its arrow turns", async ({ context, extensionUrl, seedStorage }) => {
+  const many = Array.from({ length: 160 }, (_, i) => `p${String(i).padStart(4, "0")}`.slice(0, 5));
+  await seedStorage({ ...notes({ Big: many, Small: ["aaaaa"] }) });
+  const page = await optionsPage({ context, extensionUrl });
+  const big = page.locator(".category-card", { hasText: "Big" });
+  const small = page.locator(".category-card", { hasText: "Small" });
+  const h = (loc) => loc.locator(".category-card-collapse").evaluate((e) => e.getBoundingClientRect().height);
+  await expect(small.locator(".category-card-collapse")).toHaveJSProperty("clientHeight", 0); // closed: nothing shows
+  await small.locator(".category-card-header").click();
+  await page.waitForTimeout(450); // longer than the 0.25s slide
+  const open = await h(small);
+  expect(open).toBeGreaterThan(30);
+  expect(open).toBeLessThan(120); // a one-puzzle card is short: it is not stretched to a fixed height
+
+  await big.locator(".category-card-header").click();
+  await page.waitForTimeout(450);
+  expect(await h(big), "a long list is shown whole, not cut at 500px").toBeGreaterThan(500);
+
+  // half-way through closing the height is between full and zero (the old max-height 500px held a short card full for most of it)
+  const arrowOpen = await small.locator(".accordion-arrow").evaluate((e) => getComputedStyle(e).transform);
+  await small.locator(".category-card-header").click();
+  await page.waitForTimeout(110);
+  const mid = await h(small);
+  expect(mid).toBeGreaterThan(0);
+  expect(mid).toBeLessThan(open - 3);
+  await page.waitForTimeout(400);
+  expect(await h(small)).toBe(0);
+  expect(await small.locator(".accordion-arrow").evaluate((e) => getComputedStyle(e).transform)).not.toBe(arrowOpen); // it turned back
 });

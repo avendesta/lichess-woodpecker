@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 let syncTimer = null;
 function watchStorage() {
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes.lichessNotes) return;
+    if (area !== "local" || !(changes.lichessNotes || changes.pausedCycles)) return;
     clearTimeout(syncTimer);
     syncTimer = setTimeout(async () => {
       await refreshUI();
@@ -110,6 +110,8 @@ function showVersion() {
 async function refreshUI() {
   const data = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
   const categories = data.categories || {};
+  const { pausedCycles } = await browser.storage.local.get("pausedCycles");
+  const parked = pausedCycles || {}; // category -> its paused cycle: shown as a tag, and the Train button becomes Resume
   const catNames = Object.keys(categories).sort((a, b) =>
     a.localeCompare(b, undefined, { sensitivity: "base" })
   );
@@ -119,7 +121,7 @@ async function refreshUI() {
 
   // Rebuild the list only when what it shows has changed (a finished training cycle, for instance, changes nothing in it),
   // and put back whichever categories were open, so syncing never folds away what someone is reading.
-  const shown = JSON.stringify([categories, filter]);
+  const shown = JSON.stringify([categories, filter, parked]);
   if (shown === renderedList) return;
   renderedList = shown;
   const open = new Set([...mainContent.querySelectorAll(".category-card:not(.collapsed) h3")].map((h) => h.textContent));
@@ -146,7 +148,7 @@ async function refreshUI() {
     }
 
     anyVisible = true;
-    const card = buildCategoryCard(catName, puzzles, totalCount, open.has(catName));
+    const card = buildCategoryCard(catName, puzzles, totalCount, open.has(catName), Object.hasOwn(parked, catName) ? parked[catName] : null);
     mainContent.appendChild(card);
   });
 
@@ -175,7 +177,7 @@ function renderTotals(categories) {
 /* ============================================================
  * Build a category card DOM element
  * ============================================================ */
-function buildCategoryCard(catName, puzzles, totalCount, expanded = false) {
+function buildCategoryCard(catName, puzzles, totalCount, expanded = false, paused = null) {
   const card = document.createElement("div");
   card.className = expanded ? "category-card" : "category-card collapsed";
 
@@ -191,13 +193,30 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false) {
       </div>
     </div>
     <div class="category-card-actions">
-      <button class="btn-icon btn-train" title="Train this category" aria-label="Train this category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></button>
+      <button class="btn-train"></button><span class="actions-divider" aria-hidden="true"></span>
       <button class="btn-icon btn-rename" title="Rename category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       <button class="btn-icon btn-delete-cat" title="Delete category"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></button>
     </div>
   `;
   header.querySelector("h3").textContent = catName;
-  if (expanded) header.querySelector(".accordion-arrow").textContent = "▼";
+  const trainBtn = header.querySelector(".btn-train");
+  const waiting = paused && Number.isFinite(paused.totalPuzzles) ? paused : null;
+  if (waiting) {
+    trainBtn.classList.add("is-resume");
+    trainBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg><span>Resume</span>';
+    trainBtn.setAttribute("aria-label", "Resume this category's paused cycle");
+    trainBtn.title = `Paused: ${waiting.completedInCycle || 0} of ${waiting.totalPuzzles} puzzles done in cycle ${waiting.cycleCount || 1}`;
+  } else {
+    trainBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>Train</span>';
+    trainBtn.setAttribute("aria-label", "Train this category");
+    trainBtn.title = "Train this category";
+  }
+  if (waiting) {
+    const tag = document.createElement("span");
+    tag.className = "paused-tag";
+    tag.textContent = `⏸ ${waiting.completedInCycle || 0}/${waiting.totalPuzzles}`;
+    header.querySelector(".category-card-title-left").appendChild(tag);
+  }
   header.querySelector(".count").textContent = `${totalCount} puzzle${totalCount !== 1 ? "s" : ""}`;
   header.querySelectorAll(".category-card-actions button").forEach((b) => { b.dataset.cat = catName; });
   card.appendChild(header);
@@ -207,9 +226,7 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false) {
     // Don't toggle if clicking on action buttons
     if (e.target.closest(".category-card-actions")) return;
     
-    card.classList.toggle("collapsed");
-    const arrow = header.querySelector(".accordion-arrow");
-    arrow.textContent = card.classList.contains("collapsed") ? "▶" : "▼";
+    card.classList.toggle("collapsed"); // the arrow turns and the body slides, both in CSS
   });
 
   // Body
@@ -240,7 +257,10 @@ function buildCategoryCard(catName, puzzles, totalCount, expanded = false) {
     body.appendChild(grid);
   }
 
-  card.appendChild(body);
+  const collapse = document.createElement("div"); // a grid row that animates between 1fr and 0fr: the body grows to its real height
+  collapse.className = "category-card-collapse";
+  collapse.appendChild(body);
+  card.appendChild(collapse);
   return card;
 }
 
