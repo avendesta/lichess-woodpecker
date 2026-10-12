@@ -19,6 +19,7 @@ const INCLUDE = [
   "popup.html",
   "popup.css",
   "popup.js",
+  "shared.js",
   "options.html",
   "options.css",
   "options.js",

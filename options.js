@@ -22,7 +22,6 @@ const modalConfirm = document.getElementById("modal-confirm");
 
 const srStatus = document.getElementById("sr-status"); // read out by screen readers, never shown
 
-const toastEl = document.getElementById("toast");
 const btnExport = document.getElementById("btn-export");
 const btnImport = document.getElementById("btn-import");
 const importFile = document.getElementById("import-file");
@@ -58,7 +57,6 @@ const STATS_PAGE = 10; // how many training cycles show at first, and how many m
 let allStats = []; // every recorded cycle, newest first
 let statsShown = STATS_PAGE;
 
-let toastTimeout = null;
 const ALL = "All Categories"; // the name the combined run is stored under (a category may not use it)
 let renderedFilter = ""; // the search text the list was last built for
 let renderedList = null; // what the category list currently shows, to skip rebuilding it when nothing it shows has changed
@@ -512,18 +510,6 @@ async function handleDeleteClick(btn) {
 }
 
 /* ============================================================
- * Toast notification
- * ============================================================ */
-function showToast(message, type = "success") {
-  if (toastTimeout) clearTimeout(toastTimeout);
-  toastEl.textContent = message;
-  toastEl.className = `toast toast-${type}`;
-  toastTimeout = setTimeout(() => {
-    toastEl.classList.add("hidden");
-  }, 2500);
-}
-
-/* ============================================================
  * Clipboard helper
  * ============================================================ */
 async function copyToClipboard(text) {
@@ -900,38 +886,7 @@ async function startCategory(name) {
     return;
   }
   const { trainingSession, pausedCycles } = await browser.storage.local.get(["trainingSession", "pausedCycles"]);
-  const parked = pausedCycles || {};
-  let park = null; // a cycle paused in the old shape (still in the active slot) is parked now rather than lost
-  if (trainingSession && trainingSession.pausedAt) park = { ...trainingSession, ownerTabId: null };
-  let session = null;
-  let unpark = null;
-  if (park && park.category === name) {
-    session = park;
-    park = null;
-  } else if (Object.hasOwn(parked, name)) {
-    session = { ...parked[name] };
-    unpark = name;
-  }
-  if (session) {
-    session.timerStartedAt += Date.now() - session.pausedAt; // paused time stays out of the clock
-    delete session.pausedAt;
-  } else {
-    const ids = [...new Set(pool)];
-    for (let i = ids.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [ids[i], ids[j]] = [ids[j], ids[i]];
-    }
-    session = {
-      category: name,
-      queue: ids.map((id) => `https://lichess.org/training/${id}`),
-      currentIndex: 0,
-      totalPuzzles: ids.length,
-      cycleCount: 1,
-      timerStartedAt: Date.now(),
-      isMinimized: false,
-      completedInCycle: 0,
-    };
-  }
+  const { session, park, unpark } = buildSession(name, pool, trainingSession, pausedCycles);
   const tab = await browser.tabs.create({ url: "about:blank" });
   session.ownerTabId = tab.id;
   let response;

@@ -45,8 +45,10 @@ for (const [name, m] of [["manifest.json", chrome], ["manifest-firefox.json", ff
 }
 // The background is the only writer of the library (lichessNotes): it applies changes one at a time, which is what stops two
 // near-simultaneous read-modify-write cycles from throwing each other's changes away. Pages and the overlay send messages.
-for (const f of ["popup.js", "options.js", "content.js"]) {
+for (const f of ["popup.js", "options.js", "content.js", "shared.js"]) {
   const src = fs.readFileSync(path.join(ROOT, f), "utf8");
+  // user data (puzzle IDs, category names, imported text) never goes into an innerHTML template: only static strings do
+  for (const m of src.matchAll(/innerHTML\s*\+?=\s*`([^`]*)`/g)) if (m[1].includes("${")) fail(`${f}: an innerHTML template interpolates a value (\`\${...}\`); build the node with textContent / setAttribute instead`);
   if (/\.set\(\s*\{\s*lichessNotes\b/.test(src)) fail(`${f} writes lichessNotes directly; send a message to background.js instead (it is the only writer)`);
   // the parked map of paused cycles is the same: a stale read-modify-write there could drop another category's cycle
   if (/storage\.local\.(set|remove)\(\s*(\{[^}]*)?(["']pausedCycles["']|pausedCycles\b|\[PARKED_KEY\]|PARKED_KEY)/.test(src)) fail(`${f} writes pausedCycles directly; send PARK_CYCLE / UNPARK_CYCLE / START_SESSION to background.js instead`);

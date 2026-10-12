@@ -918,3 +918,60 @@ test("the cycle being trained now has a gold bolt in the popup (its row, or Trai
   await openPopup({ extPage, seedStorage }, { ...notes(cats), ...session({ pausedAt: 5 }) }); // paused (old shape)
   expect(await colour(bolt("Pins"))).not.toBe(GOLD);
 });
+
+// ---- shared.js: the one buildSession both the popup and the options page use ----
+
+const PAUSED = (category, extra = {}) => ({ category, queue: ["https://lichess.org/training/aaaaa", "https://lichess.org/training/bbbbb"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, cycleCount: 1, isMinimized: false, timerStartedAt: 1_000, pausedAt: 5_000, ownerTabId: 7, ...extra });
+
+test("buildSession: a fresh cycle de-duplicates and shuffles; a parked or old-shape paused cycle continues with its clock shifted", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ A: ["aaaaa"] }));
+  const run = (args) => extPage.evaluate((a) => { const r = buildSession(...a); return { ...r, now: Date.now() }; }, args);
+
+  // fresh: every different puzzle once, as lichess URLs, in some order, from the start
+  const ids = Array.from({ length: 40 }, (_, i) => `p${String(i).padStart(4, "0")}`);
+  const fresh = await run(["Pins", [...ids, ...ids.slice(0, 5)], null, null]);
+  expect(fresh.park).toBeNull();
+  expect(fresh.unpark).toBeNull();
+  expect(fresh.session).toMatchObject({ category: "Pins", currentIndex: 0, totalPuzzles: 40, cycleCount: 1, completedInCycle: 0, isMinimized: false });
+  expect([...fresh.session.queue].sort()).toEqual(ids.map((id) => `https://lichess.org/training/${id}`));
+  expect(fresh.session.queue, "shuffled, not left in order").not.toEqual(ids.map((id) => `https://lichess.org/training/${id}`));
+  expect(fresh.session.pausedAt).toBeUndefined();
+
+  // a parked cycle of this category: continued (unpark names it), paused time left out of the clock, pausedAt gone
+  const parked = await run(["Pins", ["aaaaa"], null, { Pins: PAUSED("Pins"), Other: PAUSED("Other") }]);
+  expect(parked.unpark).toBe("Pins");
+  expect(parked.park).toBeNull();
+  expect(parked.session.pausedAt).toBeUndefined();
+  expect(parked.session.currentIndex).toBe(1);
+  expect(Math.abs(parked.session.timerStartedAt - (1_000 + parked.now - 5_000))).toBeLessThan(2_000);
+
+  // an old-shape paused cycle of ANOTHER category is parked (kept), and a fresh cycle starts
+  const other = await run(["Pins", ["aaaaa"], PAUSED("Forks"), null]);
+  expect(other.park).toMatchObject({ category: "Forks", ownerTabId: null, pausedAt: 5_000 });
+  expect(other.session.category).toBe("Pins");
+  expect(other.unpark).toBeNull();
+
+  // an old-shape paused cycle of THIS category is continued, not parked
+  const same = await run(["Pins", ["aaaaa"], PAUSED("Pins"), null]);
+  expect(same.park).toBeNull();
+  expect(same.unpark).toBeNull();
+  expect(same.session).toMatchObject({ category: "Pins", currentIndex: 1 });
+  expect(same.session.pausedAt).toBeUndefined();
+
+  // a category named like an Object.prototype key does not "find" a parked cycle through the prototype
+  const proto = await run(["constructor", ["aaaaa"], null, {}]);
+  expect(proto.unpark).toBeNull();
+  expect(proto.session.category).toBe("constructor");
+});
+
+test("both pages load shared.js and neither redefines what it provides", async ({ context, extensionUrl, extPage }) => {
+  const has = (p) => p.evaluate(() => ["buildSession", "fisherYatesShuffle", "showToast"].every((n) => typeof window[n] === "function"));
+  expect(await has(extPage)).toBe(true);
+  const options = await context.newPage();
+  await options.goto(extensionUrl("options.html"));
+  expect(await has(options)).toBe(true);
+  for (const f of ["popup.js", "options.js"]) {
+    const src = require("fs").readFileSync(require("path").join(__dirname, "..", f), "utf8");
+    for (const n of ["buildSession", "fisherYatesShuffle", "showToast"]) expect(src, `${f} must not define ${n}`).not.toMatch(new RegExp(`function ${n}\\b`));
+  }
+});

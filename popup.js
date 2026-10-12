@@ -24,12 +24,10 @@ const newCancel = document.getElementById("new-cancel");
 const categoryList = document.getElementById("category-list");
 const btnTrainAll = document.getElementById("btn-train-all");
 const btnOptions = document.getElementById("btn-options");
-const toastEl = document.getElementById("toast");
 const srStatus = document.getElementById("sr-status"); // read out by screen readers, never shown
 
 let currentPuzzleId = null; // read from the active tab's DOM; null when it is not a puzzle page
 let currentTabId = null; // active tab ID, needed for DOM extraction
-let toastTimeout = null;
 
 let data = { categories: {}, meta: {}, paused: {}, running: null }; // what is stored: the categories, their metadata and the parked paused cycles
 let query = ""; // the search box
@@ -493,28 +491,8 @@ function bindEvents() {
 }
 
 /* ============================================================
- * Toast notification
- * ============================================================ */
-function showToast(message, type = "success") {
-  if (toastTimeout) clearTimeout(toastTimeout);
-  toastEl.textContent = message;
-  toastEl.className = `toast toast-${type}`;
-  toastTimeout = setTimeout(() => {
-    toastEl.classList.add("hidden");
-  }, 2500);
-}
-
-/* ============================================================
  * Woodpecker Training — start session
  * ============================================================ */
-function fisherYatesShuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
 // The tab training is started from becomes the session's owner and is the tab that navigates to the puzzle; then the popup
 // closes. `parked` is what is left in the parked area afterwards, saved in the same write as the new active cycle.
 // `park` is an old-shape paused cycle to keep, `unpark` the category whose parked cycle this session continues. They are
@@ -542,45 +520,9 @@ async function startTrainingSession(categoryName, puzzleIds) {
     showToast("No puzzles to train.", "warn");
     return;
   }
-
+  // Pressing Train continues the category's paused cycle (nothing to ask: to start over, continue and use the overlay's Restart,
+  // which asks first), and otherwise starts a fresh one, replacing whatever is running (no question: Pause is how to keep a place).
   const { trainingSession, pausedCycles } = await browser.storage.local.get(["trainingSession", "pausedCycles"]);
-  const parked = pausedCycles || {};
-  let park = null; // a cycle paused in the old shape (still in the active slot) is parked now rather than lost
-  if (trainingSession && trainingSession.pausedAt) park = { ...trainingSession, ownerTabId: null };
-
-  // A category with a paused cycle just continues it: pressing Train means "carry on", so there is nothing to ask. (To start
-  // over, continue and use Restart in the overlay, which asks first.) Other categories' paused cycles are not in the way at all.
-  // Pressing Train while another cycle is running just starts the new one (it replaces the running cycle; no question, because
-  // asking was only ever a native dialog that automation and some browser settings answer "no" unseen). Pausing in the
-  // overlay is how to keep a place.
-  let resumed = null;
-  let unpark = null;
-  if (park && park.category === categoryName) {
-    resumed = park; // the old-shape paused cycle is this category's: continue it, nothing to park
-    park = null;
-  } else if (Object.hasOwn(parked, categoryName)) {
-    resumed = { ...parked[categoryName] };
-    unpark = categoryName;
-  }
-  if (resumed) {
-    resumed.timerStartedAt += Date.now() - resumed.pausedAt; // the time spent paused is left out of the clock
-    delete resumed.pausedAt;
-    await openSessionInActiveTab(resumed, { park, unpark });
-    return;
-  }
-
-  // Deduplicate IDs
-  const unique = [...new Set(puzzleIds)];
-  const queue = fisherYatesShuffle(unique.map((id) => `https://lichess.org/training/${id}`));
-
-  await openSessionInActiveTab({
-    category: categoryName,
-    queue: queue,
-    currentIndex: 0,
-    totalPuzzles: unique.length,
-    cycleCount: 1,
-    timerStartedAt: Date.now(),
-    isMinimized: false,
-    completedInCycle: 0,
-  }, { park });
+  const { session, park, unpark } = buildSession(categoryName, puzzleIds, trainingSession, pausedCycles);
+  await openSessionInActiveTab(session, { park, unpark });
 }
