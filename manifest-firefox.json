@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Lichess Woodpecker",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Woodpecker training mode for Lichess puzzles. Save puzzles, create categories, and practice with randomized training.",
   "permissions": [
     "storage",
