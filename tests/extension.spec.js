@@ -310,6 +310,9 @@ test("the overlay may park and unpark a cycle, but only the extension's own page
 // ---- The overlay cleans up after itself ----
 // Counts the listeners the overlay (a content script, which lives in its own JavaScript world) has on window and document,
 // through the DevTools protocol, which the page's own scripts cannot see.
+// slam.js (the Shift+F experiment) keeps one keydown listener on document for the life of the page, in the same JavaScript world:
+// it is the baseline, so "nothing left" means exactly that one.
+const SLAM_KEYDOWN = 1;
 async function overlayListeners(context, page, worlds) {
   const cdp = worlds.cdp;
   const mine = worlds.list.filter((w) => w.name === "Lichess Woodpecker").pop();
@@ -344,7 +347,7 @@ test("a detached overlay leaves no listeners behind, whether its session ended e
   expect(chip.resize + chip.keydown, "the probe can see the overlay's listeners at all").toBeGreaterThan(0);
   await overlay.locator(".wpk-resume-dismiss").click(); // dismissing the chip
   await expect(overlay).toHaveCount(0);
-  expect(await overlayListeners(context, page, worlds), "dismissed chip: nothing left").toEqual({ resize: 0, click: 0, keydown: 0 });
+  expect(await overlayListeners(context, page, worlds), "dismissed chip: nothing left").toEqual({ resize: 0, click: 0, keydown: SLAM_KEYDOWN });
 
   await page.reload({ waitUntil: "domcontentloaded" }); // the chip is back; this time claim and run
   await overlay.locator(".wpk-resume").click();
@@ -354,7 +357,7 @@ test("a detached overlay leaves no listeners behind, whether its session ended e
   expect(running.click, "while running it listens for Lichess's Continue").toBeGreaterThan(0);
   await extPage.evaluate(() => browser.storage.local.remove("trainingSession")); // the session ends elsewhere, so this overlay detaches
   await expect(overlay).toHaveCount(0);
-  expect(await overlayListeners(context, page, worlds), "detached overlay: nothing left").toEqual({ resize: 0, click: 0, keydown: 0 });
+  expect(await overlayListeners(context, page, worlds), "detached overlay: nothing left").toEqual({ resize: 0, click: 0, keydown: SLAM_KEYDOWN });
 });
 
 test("options page: confirming a rename without changing the name keeps the category and its puzzles", async ({ context, extensionUrl, send }) => {

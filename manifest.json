@@ -33,7 +33,7 @@
   "content_scripts": [
     {
       "matches": ["https://lichess.org/training/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "slam.js"],
       "css": ["content.css"]
     }
   ],

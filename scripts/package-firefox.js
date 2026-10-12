@@ -24,6 +24,7 @@ const INCLUDE = [
   "options.css",
   "options.js",
   "content.js",
+  "slam.js",
   "content.css",
   "icons/icon16.png",
   "icons/icon32.png",
