@@ -734,21 +734,17 @@ function formatTime(ms) {
   }
 }
 
-function formatDate(timestamp) {
+// A label by calendar day, not by hours elapsed: 23:00 last night is "Yesterday" at 08:00 today. `now` is a parameter for tests.
+function formatDate(timestamp, now = Date.now()) {
   const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) {
-    return `Today, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-  } else if (diffDays === 1) {
-    return `Yesterday, ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-  } else if (diffDays < 7) {
-    return `${diffDays} days ago`;
-  } else {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  }
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // whole calendar days between the two midnights; rounding absorbs the 23- and 25-hour days of a clock change
+  const diffDays = Math.round((midnight(new Date(now)) - midnight(date)) / 86_400_000);
+  const time = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  if (diffDays <= 0) return `Today, ${time}`;
+  if (diffDays === 1) return `Yesterday, ${time}`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function getSuccessRateClass(rate) {

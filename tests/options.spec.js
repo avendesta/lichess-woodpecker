@@ -1050,3 +1050,23 @@ test("a category's Train button is greyed out when it has no puzzles, as in the 
   await btn("Empty").click({ force: true }); // aria-disabled buttons are not "actionable" to Playwright, but a person can press one
   await expect(page.locator(".toast")).toContainText("No puzzles to train");
 });
+
+// ---- formatDate: calendar days, not 24-hour windows ----
+
+test("a cycle's date label follows the calendar: before midnight is Yesterday, not Today, whatever the hour", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  // a zone with a clock change on the dates below (a UTC machine has none, and the two cases would pass without the rounding)
+  await (await context.newCDPSession(page)).send("Emulation.setTimezoneOverride", { timezoneId: "America/New_York" });
+  const label = (then, now) => page.evaluate(([t, n]) => formatDate(new Date(t).getTime(), new Date(n).getTime()), [then, now]);
+  // local times, written without a zone so they mean the browser's own calendar
+  expect(await label("2026-03-10T23:00:00", "2026-03-11T08:00:00"), "9 hours ago but yesterday").toMatch(/^Yesterday, /);
+  expect(await label("2026-03-11T00:05:00", "2026-03-11T23:50:00"), "almost 24 hours ago but today").toMatch(/^Today, /);
+  expect(await label("2026-03-09T09:00:00", "2026-03-11T08:00:00"), "47 hours ago, two calendar days").toBe("2 days ago");
+  expect(await label("2026-03-11T08:00:00", "2026-03-11T08:00:30")).toMatch(/^Today, /);
+  expect(await label("2026-03-05T12:00:00", "2026-03-11T12:00:00")).toBe("6 days ago");
+  expect(await label("2026-03-04T12:00:00", "2026-03-11T12:00:00"), "seven days back is a date").toMatch(/^Mar 4, 2026$/);
+  // across the clock change: a day is a calendar day even when it has 23 or 25 hours
+  expect(await label("2026-03-07T23:30:00", "2026-03-09T00:30:00"), "two calendar days over the March change").toBe("2 days ago");
+  expect(await label("2026-10-31T23:30:00", "2026-11-02T00:30:00"), "two calendar days over the October/November change").toBe("2 days ago");
+  expect(await label("2026-10-31T23:30:00", "2026-11-01T00:30:00")).toMatch(/^Yesterday, /);
+});
