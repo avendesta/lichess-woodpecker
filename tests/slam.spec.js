@@ -22,7 +22,7 @@ const slamPage = async (context, html) => {
   return page;
 };
 const slamming = (page) => page.evaluate(() => document.getAnimations().length);
-const settled = (page) => page.waitForFunction(() => document.getAnimations().length === 0 && !document.querySelector("[data-wpk-slam-dust]"), null, { timeout: 8000 });
+const settled = (page) => page.waitForFunction(() => document.getAnimations().length === 0 && !document.querySelector("[data-wpk-slam-dust], [data-wpk-fist]"), null, { timeout: 8000 });
 const centres = (page) => page.evaluate(() => [...document.querySelectorAll("cg-board piece")].map((e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
 const snapshot = (page) => page.evaluate(() => ({
   styles: [...document.querySelectorAll("cg-board > *")].map((e) => e.getAttribute("style")),
@@ -45,9 +45,9 @@ async function inExtensionWorld(context, page) {
   return (expression) => cdp.send("Runtime.evaluate", { expression, contextId: id, returnByValue: true }).then((r) => r.result.value);
 }
 const STUB_AUDIO = (broken) => `(() => {
-  const seen = (globalThis.__slamAudio = { contexts: 0, started: 0, compressors: 0 });
+  const seen = (globalThis.__slamAudio = { contexts: 0, started: 0, compressors: 0, silenced: 0 });
   const param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}, linearRampToValueAtTime() {} });
-  const node = () => ({ connect(n) { return n; }, start() { seen.started++; }, stop() {}, gain: param(), frequency: param(), type: "", buffer: null });
+  const node = () => ({ connect(n) { return n; }, start() { seen.started++; }, stop(when) { if (when === undefined) seen.silenced++; }, gain: param(), frequency: param(), type: "", buffer: null });
   window.AudioContext = class { constructor() { seen.contexts++; ${broken ? 'throw new Error("blocked");' : ""} this.state = "running"; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; }
     resume() { return Promise.resolve(); } createGain() { return node(); } createDynamicsCompressor() { seen.compressors++; return node(); } createOscillator() { return node(); } createBiquadFilter() { return node(); } createBufferSource() { return node(); }
     createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; } };
@@ -300,5 +300,182 @@ test("a repeat slam measures the board at rest, so its dust starts at the board'
     const off = Math.min(Math.abs(x - (rest.left + 4)), Math.abs(x - (rest.right - 4)));
     expect(off, `a side puff starts ${off.toFixed(1)}px from the resting side`).toBeLessThan(1.5);
   }
+  await settled(page);
+});
+
+// ---- The second animation: Shift+H, a giant fist hits the board; pieces tilt, hop or topple sideways (with a click), then stand back up ----
+
+const fistTiming = (page) => page.evaluate(() => ({
+  boardAnims: document.querySelector(".cg-wrap").getAnimations().length,
+  mainAnims: document.querySelector("main").getAnimations().length,
+  pieces: [...document.querySelectorAll("cg-board piece")].map((p) => p.getAnimations().length),
+  fists: document.querySelectorAll("[data-wpk-fist]").length,
+  dust: document.querySelectorAll("[data-wpk-slam-dust]").length,
+  boardElapsed: document.querySelector(".cg-wrap").getAnimations()[0]?.currentTime,
+  mainDelay: document.querySelector("main").getAnimations()[0]?.effect.getTiming().delay,
+}));
+// what each piece does: the largest turn in its animation
+const turns = (page) => page.evaluate(() => [...document.querySelectorAll("cg-board piece")].map((p) => Math.max(0, ...p.getAnimations().flatMap((a) => a.effect.getKeyframes().map((k) => Math.abs(parseFloat(k.rotate) || 0))))));
+
+test("Shift+H: a fist lands on the dimmed board, the table shakes, and when it is over everything is exactly as it was", async ({ context }) => {
+  const page = await slamPage(context);
+  const before = await snapshot(page);
+  await page.keyboard.press("Shift+H");
+  const d = await fistTiming(page);
+  expect(d.fists, "one fist scene").toBe(1);
+  expect(d.dust, "this is the fist, not the thud slam: no dust cloud").toBe(0);
+  expect(d.boardAnims).toBe(1);
+  expect(d.mainAnims, "the screen shakes").toBe(1);
+  expect(d.pieces.every((n) => n === 1), `every piece reacts: ${d.pieces}`).toBe(true);
+  const scene = await page.evaluate(() => {
+    const box = document.querySelector("[data-wpk-fist]");
+    const hand = box.querySelector("[data-wpk-fist-hand]");
+    const dim = box.querySelector("[data-wpk-fist-dim]");
+    const board = document.querySelector(".cg-wrap").getBoundingClientRect();
+    const h = hand.getBoundingClientRect();
+    return { glyph: hand.textContent, events: getComputedStyle(box).pointerEvents, hidden: box.getAttribute("aria-hidden"), position: getComputedStyle(box).position, big: h.width, boardWidth: board.width, dimRect: dim && (({ x, y, width, height }) => ({ x, y, width, height }))(dim.getBoundingClientRect()), boardRect: { x: board.x, y: board.y, width: board.width, height: board.height }, hasDim: !!dim };
+  });
+  expect(scene.glyph).toBe("\u{1F44A}");
+  expect(scene.events, "never takes a click").toBe("none");
+  expect(scene.hidden).toBe("true");
+  expect(scene.position).toBe("fixed");
+  expect(scene.big, "a big fist").toBeGreaterThan(scene.boardWidth * 0.25);
+  expect(scene.hasDim, "the board is dimmed under it").toBe(true);
+  await settled(page);
+  await expect(page.locator("[data-wpk-fist]")).toHaveCount(0);
+  expect(await snapshot(page)).toEqual(before);
+});
+
+test("the pieces answer the fist in three ways: most tilt, some hop, some topple onto their side, and each toppling piece clicks", async ({ context }) => {
+  const page = await slamPage(context);
+  const world = await inExtensionWorld(context, page);
+  await world(STUB_AUDIO(false));
+  await page.keyboard.press("Shift+H");
+  const t = await turns(page);
+  const toppled = t.filter((d) => d >= 70).length;
+  const tilted = t.filter((d) => d >= 8 && d < 70).length;
+  const hopped = t.filter((d) => d < 8).length;
+  expect(toppled, `some topple (${t.map((d) => Math.round(d))})`).toBeGreaterThanOrEqual(1);
+  expect(toppled, "but not all of them").toBeLessThan(t.length / 2);
+  expect(tilted, "most only tilt").toBeGreaterThan(toppled);
+  expect(hopped, "a few just hop").toBeGreaterThanOrEqual(1);
+  expect(toppled + tilted + hopped).toBe(t.length);
+  // the thud of the hit (a tone and a noise burst) plus a click (a noise tick and a blip) for every toppling piece
+  expect(await world("globalThis.__slamAudio.started"), "the clicks").toBe(2 + 2 * toppled);
+  expect(await world("globalThis.__slamAudio.contexts")).toBe(1);
+  await settled(page);
+});
+
+test("while the pieces tilt and topple they stay about their own squares (a fallen piece lies well within a square of where it stood), then they all stand back up", async ({ context }) => {
+  const page = await slamPage(context);
+  const before = await centres(page);
+  await page.keyboard.press("Shift+H");
+  await page.evaluate(() => { for (const a of document.getAnimations()) if (!a.effect.target.matches("cg-board piece")) a.cancel(); window.__pieceAnims = document.getAnimations(); }); // kept: an animation paused past its end is no longer listed by getAnimations()
+  let worst = 0;
+  const total = await page.evaluate(() => Math.max(...window.__pieceAnims.map((a) => a.effect.getComputedTiming().endTime)));
+  for (let t = 300; t < total; t += 90) {
+    await page.evaluate((ms) => window.__pieceAnims.forEach((a) => { a.pause(); a.currentTime = ms; }), t);
+    const now = await centres(page);
+    for (let i = 0; i < now.length; i++) worst = Math.max(worst, Math.hypot(now[i][0] - before[i][0], now[i][1] - before[i][1]));
+  }
+  expect(worst, `the furthest a piece strays: ${worst.toFixed(1)}px (a square is 80px)`).toBeLessThan(60);
+  expect(worst, "and they really do move").toBeGreaterThan(12);
+  await page.evaluate(() => window.__pieceAnims.forEach((a) => { a.pause(); a.currentTime = a.effect.getComputedTiming().endTime; }));
+  const end = await centres(page);
+  for (let i = 0; i < end.length; i++) expect(Math.hypot(end[i][0] - before[i][0], end[i][1] - before[i][1]), `piece ${i} is back on its square`).toBeLessThan(0.6);
+  await page.evaluate(() => window.__pieceAnims.forEach((a) => a.cancel()));
+  await settled(page);
+});
+
+test("Shift+H is its own key: Shift+F is still the thud slam, plain H and modified or typed H do nothing, and the two never run together", async ({ context }) => {
+  const page = await slamPage(context, boardPage('<input id="chat" type="text">'));
+  for (const key of ["h", "H", "Control+Shift+H", "Alt+Shift+H", "Meta+Shift+H"]) {
+    await page.keyboard.press(key);
+    expect(await slamming(page), `${key} does nothing`).toBe(0);
+  }
+  await page.focus("#chat");
+  await page.keyboard.press("Shift+H");
+  expect(await slamming(page), "typing a capital H does nothing").toBe(0);
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("Shift+F");
+  expect((await fistTiming(page)).fists, "Shift+F does not summon the fist").toBe(0);
+  expect((await fistTiming(page)).dust, "Shift+F is the dust slam").toBe(1);
+  await page.keyboard.press("Shift+H"); // switching style mid-slam: the old one is cancelled, one animation per target
+  const d = await fistTiming(page);
+  expect(d.boardAnims).toBe(1);
+  expect(d.mainAnims).toBe(1);
+  expect(d.pieces.every((n) => n === 1), `no doubled animations: ${d.pieces}`).toBe(true);
+  expect(d.fists).toBe(1);
+  await page.keyboard.press("Shift+F");
+  const e = await fistTiming(page);
+  expect(e.fists, "the fist is taken away at once when the other slam starts").toBe(0);
+  expect(e.pieces.every((n) => n === 1)).toBe(true);
+  await settled(page);
+});
+
+test("mashing Shift+H: each press brings a fresh fist at once, only one scene at a time, and the board ends where it began", async ({ context }) => {
+  const page = await slamPage(context);
+  const before = await snapshot(page);
+  await page.keyboard.press("Shift+H");
+  expect((await fistTiming(page)).mainDelay, "the first press has the full wind-up").toBeGreaterThanOrEqual(300);
+  for (let i = 0; i < 8; i++) {
+    await page.waitForTimeout(90);
+    await page.keyboard.press("Shift+H");
+    const d = await fistTiming(page);
+    expect(d.fists, `press ${i + 2}: one fist scene`).toBe(1);
+    expect(d.boardAnims).toBe(1);
+    expect(d.pieces.every((n) => n === 1), `press ${i + 2}: one reaction per piece`).toBe(true);
+    expect(d.boardElapsed, "started at once").toBeLessThan(80);
+    expect(d.mainDelay, "a quicker wind-up on a repeat").toBeLessThanOrEqual(200);
+  }
+  await settled(page);
+  expect(await snapshot(page)).toEqual(before);
+});
+
+test("the fist animates only translate, rotate, scale and opacity, and does nothing with reduced motion, no board, or no audio", async ({ context }) => {
+  const page = await slamPage(context);
+  await page.keyboard.press("Shift+H");
+  const props = await page.evaluate(() => [...new Set(document.getAnimations().flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k))))].filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p)));
+  expect(props.filter((p) => !["translate", "rotate", "scale", "opacity"].includes(p)), `animated: ${props}`).toEqual([]);
+  await settled(page);
+
+  const calm = await slamPage(context);
+  await calm.emulateMedia({ reducedMotion: "reduce" });
+  await calm.keyboard.press("Shift+H");
+  await calm.waitForTimeout(300);
+  expect(await slamming(calm), "reduced motion: nothing").toBe(0);
+  expect(await calm.locator("[data-wpk-fist]").count()).toBe(0);
+
+  const world = await inExtensionWorld(context, page);
+  await world(STUB_AUDIO(true)); // an AudioContext that throws
+  await page.keyboard.press("Shift+H");
+  expect((await fistTiming(page)).fists, "still plays, silently").toBe(1);
+  await settled(page);
+});
+
+test("restarting the fist silences what the cancelled one had scheduled: no clicks for pieces that never fall", async ({ context }) => {
+  const page = await slamPage(context);
+  const world = await inExtensionWorld(context, page);
+  await world(STUB_AUDIO(false));
+  await page.keyboard.press("Shift+H");
+  const first = await world("globalThis.__slamAudio.started");
+  expect(first, "the first press scheduled a thud and clicks").toBeGreaterThanOrEqual(4);
+  expect(await world("globalThis.__slamAudio.silenced")).toBe(0);
+  await page.waitForTimeout(60);
+  await page.keyboard.press("Shift+H");
+  expect(await world("globalThis.__slamAudio.silenced"), "every source of the first press was stopped").toBe(first);
+  await settled(page);
+});
+
+test("the fist survives a failure part-way through: it stops cleanly and the next Shift+H works", async ({ context }) => {
+  const page = await slamPage(context);
+  const world = await inExtensionWorld(context, page);
+  await world("globalThis.__real = window.DOMMatrixReadOnly; window.DOMMatrixReadOnly = function () { throw new Error('boom'); }; 1");
+  await page.keyboard.press("Shift+H");
+  await expect.poll(() => slamming(page)).toBe(0);
+  expect(await page.locator("[data-wpk-fist]").count(), "no fist left behind").toBe(0);
+  await world("window.DOMMatrixReadOnly = globalThis.__real; 1");
+  await page.keyboard.press("Shift+H");
+  expect((await fistTiming(page)).fists).toBe(1);
   await settled(page);
 });
