@@ -1,6 +1,6 @@
 # Privacy Policy — Lichess Woodpecker
 
-**Last updated: October 11, 2026**
+**Last updated: October 13, 2026**
 
 ## Overview
 
@@ -18,10 +18,12 @@ The extension stores the following data **locally on your device** using the bro
 - **Category names and colours** — User-created labels used to organize saved puzzle IDs, and the colour you or the extension gave each.
 - **Training results** — For each finished training cycle: the category, how long it took, how many puzzles it had, how many you got correct, incorrect or skipped, and when it finished.
 - **Training in progress** — The shuffled list of puzzle IDs of a cycle you are training, your position in it, its timer and counts, and any cycles you have paused.
-- **Settings** — Where you dragged the training overlay, and whether it moves on by itself after a correct puzzle.
+- **Settings** — Where you dragged the training overlay, and the choices on the Settings tab: the overlay's theme (follow Lichess, dark or light), whether the animations behind the score screen are shown, whether the next puzzle comes up by itself after a correct one, and which table-slam animation (fist, shake or none) the Shift+F shortcut plays.
 - **Metadata** — A schema version number and a last-updated timestamp (not linked to any user identity).
 
 All data remains entirely on your device. No data is synced to any cloud service, remote server, or third party.
+
+**Sounds and animations.** The score-screen scenes and the table-slam animation are drawn on the page by the extension itself. The slam's thud is generated on the spot by your browser; no sound file is loaded, nothing is recorded, and nothing leaves your device.
 
 **Export and import.** The settings page can save your categories and puzzle IDs to a file you choose, and read such a file back. Both happen in your browser, only when you ask, and the file goes only where you put it.
 

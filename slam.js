@@ -1,5 +1,5 @@
 /**
- * EXPERIMENT: Shift+F slams the board, in the way chosen under "Table slam animation" in Settings: Fist (the default), Shake
+ * Shift+F slams the board, in the way chosen under "Table slam animation" in Settings: Fist (the default), Shake
  * or None.
  *
  * Shake: the board rises, comes down hard with a thud, the screen shakes, a burst of dust is thrown up and the pieces bounce,

@@ -7,7 +7,7 @@ source of truth to change or re-check them against.
 
 ## 0. Before you start
 
-1. Run `/release 1.2.4`. It bumps the version, builds the packages and publishes the GitHub Release. (1.2.0 is already tagged, and the
+1. Run `/release 1.3.0`. It bumps the version, builds the packages and publishes the GitHub Release. (1.2.0 is already tagged, and the
    Firefox manifest changed after it: see the Firefox listing file. The Chrome package itself is unchanged apart from the version.)
 2. Open the item in the dashboard: **Package → Upload new package**. The version must be **higher than the one currently
    published** (shown on the Package tab).
@@ -16,14 +16,14 @@ source of truth to change or re-check them against.
 
 | | |
 |---|---|
-| File | `lichess-puzzle-saver-v1.2.4.zip` (the file name still carries the project's old name; it contains Lichess Woodpecker) |
+| File | `lichess-puzzle-saver-v1.3.0.zip` (the file name still carries the project's old name; it contains Lichess Woodpecker) |
 | Where | `release/` in this repository after `npm run package`, or the same file attached to the [GitHub Release](https://github.com/avendesta/lichess-woodpecker/releases) |
-| Check | Manifest V3, version 1.2.4, 17 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
+| Check | Manifest V3, version 1.3.0, 17 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
 
 **What the Package tab shows after you upload.** The Draft column lists `storage, activeTab, scripting, host permission`. That is expected:
 
-- **"host permission"** is the content script on `https://lichess.org/training/*`. The dashboard counts a content script's sites as host access even though the manifest has no `host_permissions` key. Version 1.1.0 had a content script on lichess.org too (its pattern also covered http and subdomains; 1.2.4 narrows it to `https://lichess.org/training/*`), so it is not new, and narrowing access never prompts existing users. It needs the "Host access" justification in section 4.
-- **`tabs` is gone.** The Published column (1.1.0) still lists `tabs`; 1.2.4 does not request it, which removes the "read your browsing history" warning. A permission being dropped never prompts existing users.
+- **"host permission"** is the content script on `https://lichess.org/training/*`. The dashboard counts a content script's sites as host access even though the manifest has no `host_permissions` key. Version 1.1.0 had a content script on lichess.org too (its pattern also covered http and subdomains; 1.3.0 narrows it to `https://lichess.org/training/*`), so it is not new, and narrowing access never prompts existing users. It needs the "Host access" justification in section 4.
+- **`tabs` is gone.** The Published column (1.1.0) still lists `tabs`; 1.3.0 does not request it, which removes the "read your browsing history" warning. A permission being dropped never prompts existing users.
 
 ## 2. Store listing tab
 
@@ -54,8 +54,12 @@ TRAIN IN CYCLES
 • Press the lightning-bolt button on a category (or "Train all categories") and the extension takes you through its puzzles in random order.
 • A small overlay on the Lichess page shows your progress, a timer and your correct, incorrect and skipped counts. Skip a puzzle, restart the cycle (it asks first), pause and continue exactly where you left off, or minimize the overlay.
 • A correct solve can move on to the next puzzle by itself, while mistakes wait for you so you can study them.
-• When a cycle ends, a score screen shows your first-try accuracy and time, with a one-click Repeat for the next, reshuffled cycle.
-• The overlay follows Lichess's light or dark theme.
+• When a cycle ends, a score screen shows your first-try accuracy and time, with a one-click Repeat for the next, reshuffled cycle, and a scene behind your score: fireworks for a perfect cycle, sparkles, floating particles, or a storm.
+• The overlay follows Lichess's light or dark theme, or you can choose Dark or Light.
+
+SETTINGS
+• A Settings tab on the options page: choose the overlay's theme, turn the score-screen animations and Auto-next on or off, and pick a table-slam animation.
+• Press Shift+F on a puzzle page to slam the board: a giant fist, or a shaking table (or None to turn it off).
 
 TRACK YOUR PROGRESS
 • The Statistics tab lists every finished cycle: category, time, puzzles, correct, incorrect, skipped, first-try accuracy and date.
@@ -159,7 +163,7 @@ The dashboard needs a verified contact email under **Account**. The public conta
 
 ## 8. Pre-submit checklist
 
-- [ ] `/release 1.2.4` done; the zip in `release/` (or on the GitHub Release) is version 1.2.4
+- [ ] `/release 1.3.0` done; the zip in `release/` (or on the GitHub Release) is version 1.3.0
 - [ ] Checked Save in the real popup by hand (automation cannot open the toolbar popup)
 - [ ] Description, screenshots and promo images uploaded as above
 - [ ] Permission justifications pasted for all four rows; remote code answered **No**
