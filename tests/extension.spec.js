@@ -1139,26 +1139,91 @@ test("a correct solve moves on by itself; an incorrect one waits for Continue", 
   expect(await sessionOf(getStorage)).toMatchObject({ correctInCycle: 1, incorrectInCycle: 1, currentIndex: 2 });
 });
 
-test("the Auto-next switch turns it off and the choice is remembered", async ({ context, seedStorage, getStorage }) => {
+test("Auto-next is a setting now, not a switch in the overlay: the overlay has none, and follows what Settings stored, live", async ({ context, seedStorage, getStorage, extPage }) => {
   await serveFinishedPuzzles(context);
-  await seedStorage(autoSeed(["clean", "skipme"]));
+  await seedStorage({ ...trainingSeed(["clean", "skipme"]), autoNext: false });
   const page = await context.newPage();
   await gotoTraining(page, "https://lichess.org/training/clean");
-  const box = page.locator("#lpn-woodpecker-overlay [data-autonext]");
-  await expect(box).toBeChecked();
-  await box.uncheck();
-  await expect.poll(() => getStorage("autoNext")).toBe(false);
+  await expect(page.locator("#lpn-woodpecker-overlay [data-autonext], #lpn-woodpecker-overlay .wpk-auto-row")).toHaveCount(0);
 
+  // stored off: a correct solve waits for Continue
   await finishPuzzle(page);
   await page.waitForTimeout(2_500);
   expect(page.url()).toContain("/training/clean");
   expect(await sessionOf(getStorage)).toMatchObject({ currentIndex: 0 });
 
-  await page.reload();
-  await expect(box).not.toBeChecked();
-  await finishPuzzle(page);
-  await page.locator(".continue").click(); // the manual path still works with the switch off
+  // switched on in Settings while the finished puzzle is showing: it picks it up and moves on without a reload
+  await extPage.evaluate(() => browser.storage.local.set({ autoNext: true }));
   await page.waitForURL("**/training/skipme", { timeout: 5_000 });
+
+  // switched off again: the next correct solve waits
+  await extPage.evaluate(() => browser.storage.local.set({ autoNext: false }));
+  await page.waitForTimeout(300);
+  await finishPuzzle(page);
+  await page.waitForTimeout(2_500);
+  expect(page.url()).toContain("/training/skipme");
+});
+
+test("a tab that only shows the Resume chip never advances or writes the session when Auto-next is switched on in Settings", async ({ context, seedStorage, getStorage, extPage }) => {
+  await serveFinishedPuzzles(context);
+  await seedStorage({ ...trainingSeed(["clean", "skipme"]), autoNext: false }); // unowned: this tab only gets the chip
+  const page = await context.newPage();
+  await page.goto("https://lichess.org/training/clean", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#lpn-woodpecker-overlay .wpk-resume")).toBeVisible({ timeout: 15_000 });
+  await finishPuzzle(page); // a correctly solved puzzle is showing in this tab
+  const before = JSON.stringify(await getStorage("trainingSession"));
+  await extPage.evaluate(() => browser.storage.local.set({ autoNext: true }));
+  await page.waitForTimeout(2_500); // longer than the 1s auto-next pause
+  expect(page.url(), "the chip tab does not navigate").toContain("/training/clean");
+  expect(JSON.stringify(await getStorage("trainingSession")), "and does not write the session").toBe(before);
+  await extPage.evaluate(() => browser.storage.local.set({ autoNext: false }));
+  await extPage.evaluate(() => browser.storage.local.set({ autoNext: true }));
+  await page.waitForTimeout(2_500);
+  expect(page.url()).toContain("/training/clean");
+  expect(JSON.stringify(await getStorage("trainingSession"))).toBe(before);
+});
+
+test("the Theme setting: Auto follows the Lichess page, Dark and Light force the overlay's look, and a change applies at once", async ({ context, seedStorage, extPage }) => {
+  await serveFinishedPuzzles(context);
+  const light = (page) => page.locator("#lpn-woodpecker-overlay").evaluate((el) => el.classList.contains("wpk-light"));
+  for (const [theme, onLightPage, onDarkPage] of [["auto", true, false], ["dark", false, false], ["light", true, true], ["bogus", true, false]]) {
+    await seedStorage({ ...trainingSeed(["lightpage", "darkpage"]), overlayTheme: theme });
+    const a = await context.newPage();
+    await gotoTraining(a, "https://lichess.org/training/lightpage");
+    expect(await light(a), `${theme} on a light page`).toBe(onLightPage);
+    await a.close();
+    await seedStorage({ ...trainingSeed(["darkpage", "lightpage"]), overlayTheme: theme });
+    const b = await context.newPage();
+    await gotoTraining(b, "https://lichess.org/training/darkpage");
+    expect(await light(b), `${theme} on a dark page`).toBe(onDarkPage);
+    await b.close();
+  }
+  // live: change it in Settings while the overlay is up
+  await seedStorage({ ...trainingSeed(["darkpage", "lightpage"]), overlayTheme: "auto" });
+  const page = await context.newPage();
+  await gotoTraining(page, "https://lichess.org/training/darkpage");
+  expect(await light(page)).toBe(false);
+  await extPage.evaluate(() => browser.storage.local.set({ overlayTheme: "light" }));
+  await expect.poll(() => light(page)).toBe(true);
+  await extPage.evaluate(() => browser.storage.local.set({ overlayTheme: "auto" }));
+  await expect.poll(() => light(page)).toBe(false);
+});
+
+test("the completion animations setting: off means a plain score screen, and it applies at once", async ({ context, seedStorage, extPage }) => {
+  await serveFinishedPuzzles(context);
+  await seedStorage({ ...finishedWith(100), completionAnimations: false });
+  const off = await context.newPage();
+  await gotoTraining(off, "https://lichess.org/training/clean");
+  await expect(off.locator("#lpn-woodpecker-overlay .wpk-result")).toBeVisible();
+  await off.waitForTimeout(400);
+  await expect(off.locator("#lpn-woodpecker-overlay .wpk-fx"), "no scene when it is off").toHaveCount(0);
+  // switched on while the score screen is showing: the scene appears; off again: it goes
+  await extPage.evaluate(() => browser.storage.local.set({ completionAnimations: true }));
+  await expect(off.locator("#lpn-woodpecker-overlay .wpk-fx")).toHaveAttribute("data-fx", "fireworks");
+  await extPage.evaluate(() => browser.storage.local.set({ completionAnimations: false }));
+  await expect(off.locator("#lpn-woodpecker-overlay .wpk-fx")).toHaveCount(0);
+  await extPage.evaluate(() => browser.storage.local.remove("completionAnimations")); // not stored: on by default
+  await expect(off.locator("#lpn-woodpecker-overlay .wpk-fx")).toHaveAttribute("data-fx", "fireworks");
 });
 
 test("a correct final puzzle goes straight to the score screen", async ({ context, seedStorage, getStorage }) => {
@@ -1547,9 +1612,10 @@ test("tooltips stay on screen when the overlay is dragged to the right edge or t
   expect(t.y).toBeGreaterThanOrEqual(0);
 });
 
+
 // ---- The paused look: the same panel in the same places, with clear signs that it is paused ----
 
-const STAYS_PUT = [".wpk-panel", ".wpk-titlebar", ".wpk-progress-bar", ".wpk-progress-text", "[data-correct]", ".wpk-auto-row", "[data-timer]", ".wpk-btn-settings", ".wpk-btn-restart", ".wpk-btn-skip"];
+const STAYS_PUT = [".wpk-panel", ".wpk-titlebar", ".wpk-progress-bar", ".wpk-progress-text", "[data-correct]", "[data-timer]", ".wpk-btn-settings", ".wpk-btn-restart", ".wpk-btn-skip"];
 const parked = async (getStorage) => (await getStorage("pausedCycles")) || {};
 
 test("pausing changes how the overlay looks, but nothing moves", async ({ context, seedStorage }) => {
@@ -1575,14 +1641,13 @@ test("pausing changes how the overlay looks, but nothing moves", async ({ contex
   }
 });
 
-test("a paused overlay says so: title, progress tag and bar, green Play, greyed Skip and Auto-next", async ({ context, seedStorage }) => {
+test("a paused overlay says so: title, progress tag and bar, green Play, greyed Skip", async ({ context, seedStorage }) => {
   const { overlay } = await timerRowSetup({ context, seedStorage });
   const bar = overlay.locator(".wpk-progress-fill");
   const barRunning = await bar.evaluate((el) => getComputedStyle(el).backgroundColor);
   await expect(overlay.locator("[data-title]")).not.toHaveText("Paused");
   await expect(overlay.locator(".wpk-paused-tag")).toHaveCount(0);
   await expect(overlay.locator(".wpk-btn-skip")).not.toHaveAttribute("aria-disabled", "true");
-  await expect(overlay.locator("[data-autonext]")).toBeEnabled();
 
   await overlay.locator(".wpk-btn-pause").click();
   const play = overlay.locator(".wpk-btn-play");
@@ -1591,7 +1656,6 @@ test("a paused overlay says so: title, progress tag and bar, green Play, greyed 
   await expect(overlay.locator(".wpk-progress-text .wpk-paused-tag")).toHaveText("Paused");
   expect(await bar.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(barRunning); // the bar changes colour too
   await expect(overlay.locator(".wpk-btn-skip")).toHaveAttribute("aria-disabled", "true");
-  await expect(overlay.locator("[data-autonext]")).toBeDisabled();
   await expect(play).toHaveAccessibleName(/^Continue/);
   const [r, g, b] = (await play.evaluate((el) => getComputedStyle(el).color)).match(/\d+/g).map(Number);
   expect(g).toBeGreaterThan(r + 40); // green
@@ -1602,7 +1666,6 @@ test("a paused overlay says so: title, progress tag and bar, green Play, greyed 
   await expect(overlay.locator(".wpk-paused-tag")).toHaveCount(0);
   await expect(overlay.locator("[data-title]")).not.toHaveText("Paused");
   await expect(overlay.locator(".wpk-btn-skip")).not.toHaveAttribute("aria-disabled", "true");
-  await expect(overlay.locator("[data-autonext]")).toBeEnabled();
 });
 
 test("the Play button grows to say Continue on hover and on keyboard focus, to the left", async ({ context, seedStorage }) => {

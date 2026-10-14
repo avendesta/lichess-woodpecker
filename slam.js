@@ -1,9 +1,13 @@
 /**
- * EXPERIMENT: two ways to slam the board, each on its own key. Shift+F: the board rises, comes down hard with a thud, the
- * screen shakes, a burst of dust is thrown up and the pieces bounce, wobble and tilt before settling exactly where they were.
- * Shift+H: a giant fist hits the dimmed board, the table shakes, most pieces tilt, a few hop, some topple onto their side with
- * a click, then they all stand back up. To remove the feature, delete this file and its line in the two manifests and the two
- * package lists.
+ * EXPERIMENT: Shift+F slams the board, in the way chosen under "Table slam animation" in Settings: Fist (the default), Shake
+ * or None.
+ *
+ * Shake: the board rises, comes down hard with a thud, the screen shakes, a burst of dust is thrown up and the pieces bounce,
+ * wobble and tilt before settling exactly where they were.
+ * Fist: a giant fist hits the dimmed board, the table shakes, most pieces tilt, a few hop, some topple onto their side (the
+ * click is a silent placeholder), then they all stand back up.
+ *
+ * To remove the feature, delete this file and its line in the two manifests and the two package lists.
  *
  * A second content script, independent of the training overlay (content.js installs nothing on a page with no session of
  * ours, and this has to work on every puzzle page). Everything is the Web Animations API, so every effect cleans itself up
@@ -20,6 +24,9 @@
   const MAX_CLOUDS = 3; // dust clouds alive at once; mashing the key cannot grow the page
   const FIST_IMPACT = 380; // the same, for the fist
   const FIST_REPEAT_IMPACT = 120;
+  const MODE_KEY = "slamAnimation"; // "fist" | "shake" | "none"; anything else (or nothing stored) means fist
+  const asMode = (v) => (v === "shake" || v === "none" ? v : "fist");
+  let mode = "fist";
   let audio = null;
   let master = null; // one compressor all the sounds go through, so thuds and clicks on top of each other do not clip
   let current = null; // the slam that is playing: { animations, over, box }
@@ -438,9 +445,15 @@
     });
   }
 
+  // the choice is made in Settings on the options page: read it now, and follow it when it changes
+  try {
+    chrome.storage.local.get(MODE_KEY, (r) => { mode = asMode(r && r[MODE_KEY]); void chrome.runtime.lastError; });
+    chrome.storage.onChanged.addListener((changes, area) => { if (area === "local" && changes[MODE_KEY]) mode = asMode(changes[MODE_KEY].newValue); });
+  } catch (_) { /* extension context invalidated: the default stays */ }
+
   document.addEventListener("keydown", (e) => {
-    if (e.repeat || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
-    const effect = e.code === "KeyF" ? slam : e.code === "KeyH" ? fist : null;
+    if (e.repeat || e.code !== "KeyF" || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+    const effect = mode === "shake" ? slam : mode === "fist" ? fist : null;
     if (!effect) return;
     const target = e.target;
     if (target && target.closest && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable]"))) return;

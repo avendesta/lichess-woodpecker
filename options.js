@@ -73,6 +73,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   showVersion();
   await refreshUI();
   bindEvents();
+  bindSettings();
+  await showSettings();
   await loadStats();
   watchStorage();
 });
@@ -527,7 +529,143 @@ async function copyToClipboard(text) {
 }
 
 /* ============================================================
- * Tabs: Categories (the default) and Statistics, one panel at a time (the standard tabs pattern: arrows, Home and End
+ * Settings: Theme, completion animations, Auto-next and the table slam. Each is its own storage key (so two changes never
+ * overwrite each other) and is saved the moment its control changes; nothing is written just by looking. The pages that use a
+ * setting (the overlay, the slam script) read the key themselves and fall back to the default for anything they do not
+ * know, as this page does.
+ * ============================================================ */
+const SETTINGS = {
+  overlayTheme: { id: "set-theme", name: "Theme", def: "auto", choices: ["auto", "dark", "light"] },
+  completionAnimations: { id: "set-completion", name: "Show completion animations", def: true },
+  autoNext: { id: "set-autonext", name: "Auto-next when correct", def: true },
+  slamAnimation: { id: "set-slam", name: "Table slam animation", def: "fist", choices: ["none", "fist", "shake"] },
+};
+const dropdowns = {}; // setting key -> its dropdown
+
+/** What a stored value means: itself if it is one of the choices (or a real boolean), the default otherwise. */
+function settingValue(key, stored) {
+  const s = SETTINGS[key];
+  if (typeof s.def === "boolean") return typeof stored === "boolean" ? stored : s.def;
+  return s.choices.includes(stored) ? stored : s.def;
+}
+
+/** Show the stored settings in the controls. Writes nothing. */
+async function showSettings() {
+  const stored = await browser.storage.local.get(Object.keys(SETTINGS));
+  for (const [key, s] of Object.entries(SETTINGS)) {
+    const value = settingValue(key, stored[key]);
+    if (typeof value === "boolean") document.getElementById(s.id).checked = value;
+    else dropdowns[key].show(value);
+  }
+}
+
+/* A dropdown: the browser's own menu is light grey and cannot be styled, so this is the select-only combobox pattern. The
+ * trigger button keeps focus and names the highlighted item with aria-activedescendant; arrows, Home, End, a typed letter,
+ * Enter and Space work, Escape and a click outside close it, and Tab closes it without choosing. It opens below the field, or
+ * above it when there is no room. `onPick(value, text)` is called only when a *different* item is chosen. */
+const openDropdowns = new Map(); // close function -> its dropdown, for each one that is open
+function initDropdown(trigger, onPick) {
+  const root = trigger.closest(".dd");
+  const menu = root.querySelector('[role="listbox"]');
+  const options = [...menu.querySelectorAll('[role="option"]')];
+  const label = trigger.querySelector(".dd-text");
+  let active = -1;
+
+  const isOpen = () => !menu.hidden;
+  const selectedIndex = () => options.findIndex((o) => o.getAttribute("aria-selected") === "true");
+  function show(value) { // makes `value` the shown one, without telling anyone
+    options.forEach((o) => o.setAttribute("aria-selected", String(o.dataset.value === value)));
+    trigger.dataset.value = value;
+    label.textContent = options.find((o) => o.dataset.value === value).textContent;
+  }
+  function highlight(i) {
+    active = Math.max(0, Math.min(options.length - 1, i));
+    options.forEach((o, k) => o.classList.toggle("dd-active", k === active));
+    trigger.setAttribute("aria-activedescendant", options[active].id);
+    options[active].scrollIntoView({ block: "nearest" });
+  }
+  function open() {
+    for (const [other] of openDropdowns) if (other !== close) other();
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+    const rect = trigger.getBoundingClientRect();
+    const room = window.innerHeight - rect.bottom;
+    root.classList.toggle("dd-up", room < menu.offsetHeight + 12 && rect.top > room); // below when it fits, else above
+    highlight(Math.max(0, selectedIndex()));
+    openDropdowns.set(close, root);
+  }
+  function close(refocus = false) {
+    if (!isOpen()) return;
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.removeAttribute("aria-activedescendant");
+    options.forEach((o) => o.classList.remove("dd-active"));
+    openDropdowns.delete(close);
+    if (refocus === true) trigger.focus();
+  }
+  function choose(i) {
+    const value = options[i].dataset.value;
+    const changed = value !== trigger.dataset.value;
+    close(true);
+    if (!changed) return;
+    show(value);
+    onPick(value, label.textContent);
+  }
+
+  trigger.addEventListener("click", () => (isOpen() ? close(true) : open()));
+  trigger.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!isOpen()) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) { e.preventDefault(); open(); }
+      return;
+    }
+    const jump = { ArrowDown: active + 1, ArrowUp: active - 1, Home: 0, End: options.length - 1 }[e.key];
+    if (jump !== undefined) { e.preventDefault(); highlight(jump); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(active); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); }
+    else if (e.key === "Tab") close();
+    else if (e.key.length === 1) { // typing a letter: the next item that starts with it, round the list
+      const at = options.findIndex((o, k) => k > active && o.textContent.trim().toLowerCase().startsWith(e.key.toLowerCase()));
+      const first = options.findIndex((o) => o.textContent.trim().toLowerCase().startsWith(e.key.toLowerCase()));
+      if (at !== -1 || first !== -1) highlight(at !== -1 ? at : first);
+    }
+  });
+  menu.addEventListener("mousedown", (e) => e.preventDefault()); // keep focus on the field
+  options.forEach((o, i) => {
+    o.addEventListener("click", () => choose(i));
+    o.addEventListener("mousemove", () => { if (active !== i) highlight(i); });
+  });
+  trigger.addEventListener("blur", () => close());
+  return { show };
+}
+document.addEventListener("pointerdown", (e) => { // a press anywhere outside an open dropdown closes it
+  for (const [close, root] of [...openDropdowns]) if (!root.contains(e.target)) close();
+});
+
+function bindSettings() {
+  const announce = (name, text) => { srStatus.textContent = `${name}: ${text}`; };
+  for (const [key, s] of Object.entries(SETTINGS)) {
+    const el = document.getElementById(s.id);
+    if (typeof s.def === "boolean") {
+      el.addEventListener("change", async () => {
+        await browser.storage.local.set({ [key]: el.checked });
+        announce(s.name, el.checked ? "on" : "off");
+      });
+    } else {
+      dropdowns[key] = initDropdown(el, async (value, text) => {
+        await browser.storage.local.set({ [key]: value });
+        announce(s.name, text);
+      });
+    }
+  }
+  // changed from somewhere else (another options tab): follow it
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && Object.keys(SETTINGS).some((key) => changes[key])) showSettings();
+  });
+}
+
+/* ============================================================
+ * Tabs: Categories (the default), Statistics and Settings, one panel at a time (the standard tabs pattern: arrows, Home and End
  * move between them, and only the selected tab is in the tab order)
  * ============================================================ */
 function selectTab(tab, focus = false) {

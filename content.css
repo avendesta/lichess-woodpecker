@@ -468,15 +468,6 @@
   background: var(--wpk-warning);
 }
 
-#lpn-woodpecker-overlay .wpk-paused .wpk-auto-row.wpk-inactive {
-  opacity: 0.5;
-  cursor: default;
-}
-
-#lpn-woodpecker-overlay .wpk-auto-row.wpk-inactive input {
-  cursor: default;
-}
-
 #lpn-woodpecker-overlay .wpk-btn-skip[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
@@ -593,18 +584,6 @@
 #lpn-woodpecker-overlay .wpk-resume-dismiss {
   color: var(--wpk-text-muted);
   font-weight: 400;
-}
-
-/* ---- Auto-next switch ---- */
-#lpn-woodpecker-overlay .wpk-auto-row {
-  cursor: pointer;
-  margin: 0;
-}
-
-#lpn-woodpecker-overlay .wpk-auto-row input {
-  accent-color: var(--wpk-accent);
-  cursor: pointer;
-  margin: 0;
 }
 
 /* ---- Cycle complete view: its frame, title bar and bottom row are the training view's ---- */

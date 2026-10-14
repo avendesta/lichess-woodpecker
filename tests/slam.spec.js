@@ -13,6 +13,7 @@ const boardPage = (extra = "") => `<!doctype html><html><body style="background:
   ${extra}
 </main></div></body></html>`;
 
+const SHAKE = { slamAnimation: "shake" }; // Shift+F plays the Shake only when Settings says so (the default is the fist)
 const serveBoard = (context, html = boardPage()) => context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: html }));
 const slamPage = async (context, html) => {
   await serveBoard(context, html);
@@ -53,7 +54,8 @@ const STUB_AUDIO = (broken) => `(() => {
     createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; } };
 })()`;
 
-test("Shift+F slams the board: board, screen, pieces and dust all move, then everything is exactly as it was", async ({ context }) => {
+test("Shake (Shift+F): the board slams: board, screen, pieces and dust all move, then everything is exactly as it was", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const before = await snapshot(page);
   expect(await slamming(page)).toBe(0);
@@ -77,7 +79,8 @@ test("Shift+F slams the board: board, screen, pieces and dust all move, then eve
   expect(await snapshot(page)).toEqual(before);
 });
 
-test("the slam animates only translate, rotate, scale and opacity: never transform, which chessground uses to place every piece", async ({ context }) => {
+test("the slam animates only translate, rotate, scale and opacity: never transform, which chessground uses to place every piece", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   await page.keyboard.press("Shift+F");
   const props = await page.evaluate(() => [...new Set(document.getAnimations().flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k))))].filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p)));
@@ -89,7 +92,8 @@ test("the slam animates only translate, rotate, scale and opacity: never transfo
   await settled(page);
 });
 
-test("while they wobble the pieces stay at their squares: each one bounces and tilts about itself, it is never swung around the board", async ({ context }) => {
+test("while they wobble the pieces stay at their squares: each one bounces and tilts about itself, it is never swung around the board", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const before = await centres(page);
   await page.keyboard.press("Shift+F");
@@ -107,7 +111,8 @@ test("while they wobble the pieces stay at their squares: each one bounces and t
   await settled(page);
 });
 
-test("only Shift+F does it: plain F, Ctrl/Alt/Meta+Shift+F, a held key and typing in a text box do nothing", async ({ context }) => {
+test("only Shift+F does it: plain F, Ctrl/Alt/Meta+Shift+F, a held key and typing in a text box do nothing", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context, boardPage('<input id="chat" type="text"><textarea id="note"></textarea><div id="ce" contenteditable="true">x</div>'));
   for (const key of ["f", "F", "Control+Shift+F", "Alt+Shift+F", "Meta+Shift+F", "Shift+G", "Shift"]) {
     await page.keyboard.press(key);
@@ -137,7 +142,8 @@ const delays = (page) => page.evaluate(() => ({
   clouds: document.querySelectorAll("[data-wpk-slam-dust]").length,
 }));
 
-test("pressing it again while it plays slams again at once, with a quicker wind-up, instead of waiting or doubling up", async ({ context }) => {
+test("pressing it again while it plays slams again at once, with a quicker wind-up, instead of waiting or doubling up", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   await page.keyboard.press("Shift+F");
   const first = await delays(page);
@@ -154,7 +160,8 @@ test("pressing it again while it plays slams again at once, with a quicker wind-
   await settled(page);
 });
 
-test("mashing Shift+F: every press slams, nothing piles up, and the board ends exactly where it began", async ({ context }) => {
+test("mashing Shift+F: every press slams, nothing piles up, and the board ends exactly where it began", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const before = await snapshot(page);
   let worstClouds = 0;
@@ -172,7 +179,8 @@ test("mashing Shift+F: every press slams, nothing piles up, and the board ends e
   expect(await snapshot(page), "everything back exactly as it was").toEqual(before);
 });
 
-test("people who asked for reduced motion get nothing: no motion and no sound", async ({ context }) => {
+test("people who asked for reduced motion get nothing: no motion and no sound", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   await page.emulateMedia({ reducedMotion: "reduce" });
   const world = await inExtensionWorld(context, page);
@@ -185,7 +193,8 @@ test("people who asked for reduced motion get nothing: no motion and no sound", 
   expect(await world("globalThis.__slamAudio.contexts"), "no sound either").toBe(0);
 });
 
-test("the slam comes with a thud, and a blocked or missing audio API never stops the visuals", async ({ context }) => {
+test("the slam comes with a thud, and a blocked or missing audio API never stops the visuals", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(false));
@@ -207,7 +216,8 @@ test("the slam comes with a thud, and a blocked or missing audio API never stops
   await settled(page);
 });
 
-test("with no board on the page (Lichess changed, or another puzzle page) it quietly does nothing", async ({ context }) => {
+test("with no board on the page (Lichess changed, or another puzzle page) it quietly does nothing", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   await serveBoard(context, "<!doctype html><html><body><main class='puzzle'><p>no board here</p></main></body></html>");
   const page = await context.newPage();
   const errors = [];
@@ -223,7 +233,7 @@ test("with no board on the page (Lichess changed, or another puzzle page) it qui
 
 test("it works with no training session at all, and it leaves a showing overlay where it is", async ({ context, seedStorage }) => {
   // an unowned session shows the Resume chip: the overlay is on the page while the board slams
-  await seedStorage({ lichessNotes: { categories: { Drill: ["slam1"] }, meta: { version: 1, updatedAt: 0 } }, trainingSession: { ownerTabId: null, category: "Drill", queue: ["https://lichess.org/training/slam1"], currentIndex: 0, completedInCycle: 0, totalPuzzles: 1, cycleCount: 1, timerStartedAt: Date.now() - 1000, isMinimized: false } });
+  await seedStorage({ ...SHAKE, lichessNotes: { categories: { Drill: ["slam1"] }, meta: { version: 1, updatedAt: 0 } }, trainingSession: { ownerTabId: null, category: "Drill", queue: ["https://lichess.org/training/slam1"], currentIndex: 0, completedInCycle: 0, totalPuzzles: 1, cycleCount: 1, timerStartedAt: Date.now() - 1000, isMinimized: false } });
   const page = await slamPage(context);
   const chip = page.locator("#lpn-woodpecker-overlay .wpk-resume");
   await expect(chip).toBeVisible({ timeout: 15_000 });
@@ -253,7 +263,8 @@ test("slam.js asks for nothing new: no permission, the same page match, and it i
   for (const f of ["scripts/package.js", "scripts/package-firefox.js"]) expect(fs.readFileSync(path.join(__dirname, "..", f), "utf8"), `${f} ships slam.js`).toContain('"slam.js"');
 });
 
-test("a piece that chessground is sliding is left alone, and cancelling the slam takes the dust away at once", async ({ context }) => {
+test("a piece that chessground is sliding is left alone, and cancelling the slam takes the dust away at once", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   await page.evaluate(() => document.querySelector("cg-board piece").classList.add("anim"));
   await page.keyboard.press("Shift+F");
@@ -267,7 +278,8 @@ test("a piece that chessground is sliding is left alone, and cancelling the slam
   await settled(page);
 });
 
-test("something unexpected inside a slam never leaves it stuck: it stops cleanly and the next Shift+F works", async ({ context }) => {
+test("something unexpected inside a slam never leaves it stuck: it stops cleanly and the next Shift+F works", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   // make a step of the slam throw part-way through (after the board and the screen were already set moving)
@@ -281,7 +293,8 @@ test("something unexpected inside a slam never leaves it stuck: it stops cleanly
   await settled(page);
 });
 
-test("a repeat slam measures the board at rest, so its dust starts at the board's real sides, not at the swollen, lifted ones", async ({ context }) => {
+test("a repeat slam measures the board at rest, so its dust starts at the board's real sides, not at the swollen, lifted ones", async ({ context, seedStorage }) => {
+  await seedStorage(SHAKE);
   const page = await slamPage(context);
   const rest = await page.evaluate(() => { const r = document.querySelector(".cg-wrap").getBoundingClientRect(); return { left: r.left, right: r.right, width: r.width }; });
   await page.keyboard.press("Shift+F");
@@ -303,7 +316,7 @@ test("a repeat slam measures the board at rest, so its dust starts at the board'
   await settled(page);
 });
 
-// ---- The second animation: Shift+H, a giant fist hits the board; pieces tilt, hop or topple sideways (with a click), then stand back up ----
+// ---- The Fist animation (the default for Shift+F): a giant fist hits the board; pieces tilt, hop or topple sideways (with a click), then stand back up ----
 
 const fistTiming = (page) => page.evaluate(() => ({
   boardAnims: document.querySelector(".cg-wrap").getAnimations().length,
@@ -317,10 +330,10 @@ const fistTiming = (page) => page.evaluate(() => ({
 // what each piece does: the largest turn in its animation
 const turns = (page) => page.evaluate(() => [...document.querySelectorAll("cg-board piece")].map((p) => Math.max(0, ...p.getAnimations().flatMap((a) => a.effect.getKeyframes().map((k) => Math.abs(parseFloat(k.rotate) || 0))))));
 
-test("Shift+H: a fist lands on the dimmed board, the table shakes, and when it is over everything is exactly as it was", async ({ context }) => {
+test("Shift+F: a fist lands on the dimmed board, the table shakes, and when it is over everything is exactly as it was", async ({ context }) => {
   const page = await slamPage(context);
   const before = await snapshot(page);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   const d = await fistTiming(page);
   expect(d.fists, "one fist scene").toBe(1);
   expect(d.dust, "this is the fist, not the thud slam: no dust cloud").toBe(0);
@@ -357,7 +370,7 @@ test("the pieces answer the fist in three ways: most tilt, some hop, some topple
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(false));
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   const t = await turns(page);
   const toppled = t.filter((d) => d >= 70).length;
   const tilted = t.filter((d) => d >= 8 && d < 70).length;
@@ -376,7 +389,7 @@ test("the pieces answer the fist in three ways: most tilt, some hop, some topple
 test("while the pieces tilt and topple they stay about their own squares (a fallen piece lies well within a square of where it stood), then they all stand back up", async ({ context }) => {
   const page = await slamPage(context);
   const before = await centres(page);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   await page.evaluate(() => { for (const a of document.getAnimations()) if (!a.effect.target.matches("cg-board piece")) a.cancel(); window.__pieceAnims = document.getAnimations(); }); // kept: an animation paused past its end is no longer listed by getAnimations()
   let worst = 0;
   const total = await page.evaluate(() => Math.max(...window.__pieceAnims.map((a) => a.effect.getComputedTiming().endTime)));
@@ -394,40 +407,95 @@ test("while the pieces tilt and topple they stay about their own squares (a fall
   await settled(page);
 });
 
-test("Shift+H is its own key: Shift+F is still the thud slam, plain H and modified or typed H do nothing, and the two never run together", async ({ context }) => {
-  const page = await slamPage(context, boardPage('<input id="chat" type="text">'));
-  for (const key of ["h", "H", "Control+Shift+H", "Alt+Shift+H", "Meta+Shift+H"]) {
-    await page.keyboard.press(key);
-    expect(await slamming(page), `${key} does nothing`).toBe(0);
-  }
-  await page.focus("#chat");
-  await page.keyboard.press("Shift+H");
-  expect(await slamming(page), "typing a capital H does nothing").toBe(0);
-  await page.locator("body").click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("Shift+F");
-  expect((await fistTiming(page)).fists, "Shift+F does not summon the fist").toBe(0);
-  expect((await fistTiming(page)).dust, "Shift+F is the dust slam").toBe(1);
-  await page.keyboard.press("Shift+H"); // switching style mid-slam: the old one is cancelled, one animation per target
+const which = async (page) => { // what the last Shift+F started
   const d = await fistTiming(page);
+  return d.fists ? "fist" : d.dust ? "shake" : (await slamming(page)) ? "other" : "nothing";
+};
+
+test("Shift+F follows the Table slam setting: Fist when nothing is chosen (or the value is unknown), Shake, or None", async ({ context, seedStorage }) => {
+  // nothing stored: the default is the fist
+  let page = await slamPage(context);
+  await page.keyboard.press("Shift+F");
+  expect(await which(page), "nothing stored").toBe("fist");
+  await settled(page);
+  await page.close();
+  for (const [stored, expected] of [["fist", "fist"], ["shake", "shake"], ["none", "nothing"], ["hammer", "fist"], [7, "fist"], [null, "fist"]]) {
+    await seedStorage({ slamAnimation: stored });
+    page = await slamPage(context);
+    await page.keyboard.press("Shift+F");
+    expect(await which(page), `stored ${JSON.stringify(stored)}`).toBe(expected);
+    await settled(page);
+    await page.close();
+  }
+});
+
+test("a change in Settings applies to the next press, with no reload", async ({ context, extPage }) => {
+  const page = await slamPage(context);
+  const set = (v) => extPage.evaluate((x) => browser.storage.local.set({ slamAnimation: x }), v);
+  const press = async () => { await page.keyboard.press("Shift+F"); const w = await which(page); await settled(page); return w; };
+  expect(await press(), "default").toBe("fist");
+  await set("shake");
+  await expect.poll(async () => { await page.keyboard.press("Shift+F"); const w = await which(page); await settled(page); return w; }, { message: "the content script picks the change up" }).toBe("shake");
+  await set("none");
+  await expect.poll(async () => { await page.keyboard.press("Shift+F"); const w = await which(page); await settled(page); return w; }).toBe("nothing");
+  await set("fist");
+  await expect.poll(async () => { await page.keyboard.press("Shift+F"); const w = await which(page); await settled(page); return w; }).toBe("fist");
+});
+
+test("None does nothing at all: no motion, no sound; and no other key or modifier triggers anything", async ({ context, seedStorage }) => {
+  await seedStorage({ slamAnimation: "none" });
+  const page = await slamPage(context, boardPage('<input id="chat" type="text">'));
+  const world = await inExtensionWorld(context, page);
+  await world(STUB_AUDIO(false));
+  for (const key of ["Shift+F", "Shift+H"]) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(200);
+    expect(await slamming(page), `${key} with None`).toBe(0);
+  }
+  expect(await world("globalThis.__slamAudio.contexts"), "no sound").toBe(0);
+});
+
+test("only Shift+F triggers it: plain F, H, Shift+H, Ctrl/Alt/Meta+Shift+F and typing in a text box do nothing, whichever animation is chosen", async ({ context, seedStorage }) => {
+  for (const mode of ["fist", "shake"]) {
+    await seedStorage({ slamAnimation: mode });
+    const page = await slamPage(context, boardPage('<input id="chat" type="text">'));
+    for (const key of ["f", "F", "h", "H", "Shift+H", "Control+Shift+F", "Alt+Shift+F", "Meta+Shift+F"]) {
+      await page.keyboard.press(key);
+      expect(await slamming(page), `${mode}: ${key} does nothing`).toBe(0);
+    }
+    await page.focus("#chat");
+    await page.keyboard.press("Shift+F");
+    expect(await slamming(page), `${mode}: typing a capital F does nothing`).toBe(0);
+    await page.locator("body").click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press("Shift+F");
+    expect(await slamming(page), `${mode}: and the real key works`).toBeGreaterThan(0);
+    await settled(page);
+    await page.close();
+  }
+});
+
+test("switching the animation mid-way restarts with the new one: the old is cancelled, one animation per target", async ({ context, extPage }) => {
+  const page = await slamPage(context);
+  await page.keyboard.press("Shift+F"); // the fist
+  expect((await fistTiming(page)).fists).toBe(1);
+  await extPage.evaluate(() => browser.storage.local.set({ slamAnimation: "shake" }));
+  await expect.poll(async () => { await page.keyboard.press("Shift+F"); return (await fistTiming(page)).dust; }, { message: "the next press is the shake" }).toBeGreaterThan(0);
+  const d = await fistTiming(page);
+  expect(d.fists, "the fist is gone").toBe(0);
   expect(d.boardAnims).toBe(1);
   expect(d.mainAnims).toBe(1);
   expect(d.pieces.every((n) => n === 1), `no doubled animations: ${d.pieces}`).toBe(true);
-  expect(d.fists).toBe(1);
-  await page.keyboard.press("Shift+F");
-  const e = await fistTiming(page);
-  expect(e.fists, "the fist is taken away at once when the other slam starts").toBe(0);
-  expect(e.pieces.every((n) => n === 1)).toBe(true);
   await settled(page);
 });
 
-test("mashing Shift+H: each press brings a fresh fist at once, only one scene at a time, and the board ends where it began", async ({ context }) => {
+test("mashing Shift+F: each press brings a fresh fist at once, only one scene at a time, and the board ends where it began", async ({ context }) => {
   const page = await slamPage(context);
   const before = await snapshot(page);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   expect((await fistTiming(page)).mainDelay, "the first press has the full wind-up").toBeGreaterThanOrEqual(300);
   for (let i = 0; i < 8; i++) {
     await page.waitForTimeout(90);
-    await page.keyboard.press("Shift+H");
+    await page.keyboard.press("Shift+F");
     const d = await fistTiming(page);
     expect(d.fists, `press ${i + 2}: one fist scene`).toBe(1);
     expect(d.boardAnims).toBe(1);
@@ -441,21 +509,21 @@ test("mashing Shift+H: each press brings a fresh fist at once, only one scene at
 
 test("the fist animates only translate, rotate, scale and opacity, and does nothing with reduced motion, no board, or no audio", async ({ context }) => {
   const page = await slamPage(context);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   const props = await page.evaluate(() => [...new Set(document.getAnimations().flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k))))].filter((p) => !["offset", "easing", "composite", "computedOffset"].includes(p)));
   expect(props.filter((p) => !["translate", "rotate", "scale", "opacity"].includes(p)), `animated: ${props}`).toEqual([]);
   await settled(page);
 
   const calm = await slamPage(context);
   await calm.emulateMedia({ reducedMotion: "reduce" });
-  await calm.keyboard.press("Shift+H");
+  await calm.keyboard.press("Shift+F");
   await calm.waitForTimeout(300);
   expect(await slamming(calm), "reduced motion: nothing").toBe(0);
   expect(await calm.locator("[data-wpk-fist]").count()).toBe(0);
 
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(true)); // an AudioContext that throws
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   expect((await fistTiming(page)).fists, "still plays, silently").toBe(1);
   await settled(page);
 });
@@ -464,19 +532,19 @@ test("restarting the fist silences what the cancelled one had scheduled: the thu
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(false));
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   const first = await world("globalThis.__slamAudio.started");
   expect(first, "the first press scheduled the thud (a tone and a noise burst)").toBe(2);
   expect(await world("globalThis.__slamAudio.silenced")).toBe(0);
   await page.waitForTimeout(60);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   expect(await world("globalThis.__slamAudio.silenced"), "every source of the first press was stopped").toBe(first);
   await settled(page);
 });
 
 test("the fist comes down from above to the middle of the board, its shadow tightens as it touches, and the dust bursts at the hit", async ({ context }) => {
   const page = await slamPage(context);
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   const at = (ms) => page.evaluate((t) => {
     window.__fistAnims = window.__fistAnims || document.getAnimations();
     window.__fistAnims.forEach((a) => { a.pause(); a.currentTime = t; });
@@ -507,15 +575,15 @@ test("the fist comes down from above to the middle of the board, its shadow tigh
   await settled(page);
 });
 
-test("the fist survives a failure part-way through: it stops cleanly and the next Shift+H works", async ({ context }) => {
+test("the fist survives a failure part-way through: it stops cleanly and the next Shift+F works", async ({ context }) => {
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world("globalThis.__real = window.DOMMatrixReadOnly; window.DOMMatrixReadOnly = function () { throw new Error('boom'); }; 1");
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   await expect.poll(() => slamming(page)).toBe(0);
   expect(await page.locator("[data-wpk-fist]").count(), "no fist left behind").toBe(0);
   await world("window.DOMMatrixReadOnly = globalThis.__real; 1");
-  await page.keyboard.press("Shift+H");
+  await page.keyboard.press("Shift+F");
   expect((await fistTiming(page)).fists).toBe(1);
   await settled(page);
 });

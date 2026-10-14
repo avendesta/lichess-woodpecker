@@ -10,7 +10,9 @@
   const STORAGE_KEY = "trainingSession";
   const OVERLAY_ID = "lpn-woodpecker-overlay";
   const POS_KEY = "overlayPos"; // { left, bottom } in px; absent until the user drags the overlay
-  const AUTO_KEY = "autoNext"; // boolean; absent means on
+  const AUTO_KEY = "autoNext"; // boolean; absent means on. Set from Settings on the options page, not from the overlay
+  const THEME_KEY = "overlayTheme"; // "auto" (follow the Lichess page), "dark" or "light"; anything else means auto
+  const COMPLETION_KEY = "completionAnimations"; // boolean; absent means on
   const PARKED_KEY = "pausedCycles"; // { [category]: cycle }: paused cycles wait here, one per category; trainingSession is only the running one
 
   // Avoid double-injection
@@ -262,8 +264,9 @@
     return false;
   }
 
+  let themeSetting = "auto";
   function applyTheme() {
-    overlay.classList.toggle("wpk-light", pageIsLight());
+    overlay.classList.toggle("wpk-light", themeSetting === "light" || (themeSetting === "auto" && pageIsLight()));
   }
 
   let themeTimer = null;
@@ -274,6 +277,9 @@
   }
   const themeWatcher = new MutationObserver(themeMayHaveChanged);
   const darkQuery = matchMedia("(prefers-color-scheme: dark)"); // Lichess's "system" background follows the OS
+  const asTheme = (v) => (v === "dark" || v === "light" ? v : "auto");
+  themeSetting = asTheme(await getLocal(THEME_KEY));
+  let completionAnimations = (await getLocal(COMPLETION_KEY)) !== false;
   applyTheme();
 
   const AUTO_NEXT_MS = 1000; // long enough to see the final move
@@ -284,8 +290,9 @@
   // (smaller) pill each fit the screen without drifting when you swap between them.
   function applyPos() {
     if (!pos) return;
-    const maxLeft = Math.max(0, document.documentElement.clientWidth - overlay.offsetWidth);
-    const maxBottom = Math.max(0, document.documentElement.clientHeight - overlay.offsetHeight);
+    const size = overlay.getBoundingClientRect(); // not offsetWidth/Height: they round, and a panel 272.19px tall poked 0.19px off the top
+    const maxLeft = Math.max(0, document.documentElement.clientWidth - size.width);
+    const maxBottom = Math.max(0, document.documentElement.clientHeight - size.height);
     overlay.style.left = `${Math.min(Math.max(0, pos.left), maxLeft)}px`;
     overlay.style.bottom = `${Math.min(Math.max(0, pos.bottom), maxBottom)}px`;
   }
@@ -545,30 +552,6 @@
     cycleRow.querySelector(".wpk-info-value").textContent = session.cycleCount;
     body.appendChild(cycleRow);
 
-    // Auto-next switch
-    const autoRow = document.createElement("label");
-    autoRow.className = "wpk-info-row wpk-auto-row";
-    autoRow.innerHTML = `
-      <span class="wpk-info-label">Auto-next when correct</span>
-      <input type="checkbox" data-autonext>
-    `;
-    const autoBox = autoRow.querySelector("[data-autonext]");
-    autoBox.checked = autoNext;
-    if (session.pausedAt) {
-      autoBox.disabled = true; // nothing advances by itself while paused
-      autoRow.classList.add("wpk-inactive");
-    }
-    autoBox.addEventListener("change", () => {
-      autoNext = autoBox.checked;
-      clearTimeout(autoTimer);
-      autoTimer = null;
-      try {
-        storage.local.set({ [AUTO_KEY]: autoNext }, () => void chrome.runtime.lastError);
-      } catch (_) { /* extension context invalidated; the switch still works for this page */ }
-      maybeAutoAdvance(); // turning it back on while a finished puzzle is showing should pick it up
-    });
-    body.appendChild(autoRow);
-
     // Timer
     const timerRow = document.createElement("div");
     timerRow.className = "wpk-timer-row";
@@ -647,7 +630,7 @@
   const rand = (min, max) => min + Math.random() * (max - min);
   const fx2 = (n) => n.toFixed(2);
   function makeCelebration(accuracy) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
+    if (!completionAnimations || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
     const kind = accuracy >= 100 ? "fireworks" : accuracy > 75 ? "sparkles" : accuracy >= 50 ? "particles" : "storm";
 
     const fx = document.createElement("div");
@@ -800,6 +783,7 @@
     themeWatcher.disconnect();
     darkQuery.removeEventListener("change", themeMayHaveChanged);
     storage.onChanged.removeListener(onSessionChanged);
+    storage.onChanged.removeListener(onSettingsChanged);
     clearTimeout(autoTimer);
     clearTimeout(themeTimer);
     clearTimeout(toastTimeout);
@@ -1034,7 +1018,7 @@
   // Auto-next: a correct solve moves on by itself after a short pause. Anything else (a mistake, a viewed
   // solution) is exactly what you want to study, so it waits for Continue.
   function maybeAutoAdvance() {
-    if (!autoNext || autoTimer || advancing || session.cycleFinishedAt || session.pausedAt) return;
+    if (resuming || !autoNext || autoTimer || advancing || session.cycleFinishedAt || session.pausedAt) return; // (a chip-only tab is not the owner)
     if (!document.querySelector(".puzzle__feedback.after") || !firstTryCorrect()) return;
     autoTimer = setTimeout(() => {
       autoTimer = null;
@@ -1075,6 +1059,26 @@
       el.classList.remove("visible");
     }, 2000);
   }
+
+  // The settings (Theme, completion animations, Auto-next) are chosen on the options page; a change applies at once.
+  function onSettingsChanged(changes, area) {
+    if (area !== "local" || detached) return;
+    if (changes[THEME_KEY]) {
+      themeSetting = asTheme(changes[THEME_KEY].newValue);
+      applyTheme();
+    }
+    if (changes[AUTO_KEY]) {
+      autoNext = changes[AUTO_KEY].newValue !== false;
+      clearTimeout(autoTimer);
+      autoTimer = null;
+      if (!resuming) maybeAutoAdvance(); // turned on while a finished puzzle is showing: it picks that up (a tab that only shows the Resume chip must never advance or write the session)
+    }
+    if (changes[COMPLETION_KEY]) {
+      completionAnimations = changes[COMPLETION_KEY].newValue !== false;
+      if (session.cycleFinishedAt && !resuming) render(); // the score screen shows (or drops) its scene now
+    }
+  }
+  storage.onChanged.addListener(onSettingsChanged);
 
   /* ============================================================
    * Initial render

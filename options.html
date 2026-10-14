@@ -36,6 +36,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Statistics
         </button>
+        <button class="tab" id="tab-settings" role="tab" type="button" aria-selected="false" aria-controls="panel-settings" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          Settings
+        </button>
       </div>
     </div>
 
@@ -114,6 +118,56 @@
           <div class="stats-more hidden" id="stats-more">
             <span id="stats-count" class="stats-count" aria-live="polite"></span>
             <button id="btn-stats-more" class="btn btn-secondary" type="button">Load more</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings: saved the moment a control changes, one storage key each (see options.js) -->
+    <section id="panel-settings" class="panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
+      <div class="settings-card">
+        <h2>General</h2>
+        <div class="setting-row">
+          <div class="setting-text">
+            <label class="setting-name" for="set-theme">Theme</label>
+            <p class="setting-desc" id="set-theme-desc">How the training overlay looks on Lichess. Auto follows the Lichess page.</p>
+          </div>
+          <div class="dd">
+            <button type="button" class="dd-trigger" id="set-theme" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="set-theme-list" aria-describedby="set-theme-desc" data-value="auto"><span class="dd-text">Auto (follow Lichess)</span><svg class="dd-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <ul class="dd-menu" id="set-theme-list" role="listbox" aria-label="Theme" tabindex="-1" hidden>
+            <li role="option" id="set-theme-opt-auto" data-value="auto" aria-selected="true"><span>Auto (follow Lichess)</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            <li role="option" id="set-theme-opt-dark" data-value="dark" aria-selected="false"><span>Dark</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            <li role="option" id="set-theme-opt-light" data-value="light" aria-selected="false"><span>Light</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            </ul>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-text">
+            <label class="setting-name" for="set-completion">Show completion animations</label>
+            <p class="setting-desc" id="set-completion-desc">Fireworks, sparkles, floating particles or a storm behind your score at the end of a cycle.</p>
+          </div>
+          <input type="checkbox" role="switch" id="set-completion" class="setting-switch" aria-describedby="set-completion-desc">
+        </div>
+        <div class="setting-row">
+          <div class="setting-text">
+            <label class="setting-name" for="set-autonext">Auto-next when correct</label>
+            <p class="setting-desc" id="set-autonext-desc">Move to the next puzzle by itself a second after a correct first try. A mistake always waits for you.</p>
+          </div>
+          <input type="checkbox" role="switch" id="set-autonext" class="setting-switch" aria-describedby="set-autonext-desc">
+        </div>
+        <div class="setting-row">
+          <div class="setting-text">
+            <label class="setting-name" for="set-slam">Table slam animation</label>
+            <p class="setting-desc" id="set-slam-desc">Press Shift+F on a puzzle page to slam the board.</p>
+            <p class="setting-shortcut">Shortcut: Shift+F</p>
+          </div>
+          <div class="dd">
+            <button type="button" class="dd-trigger" id="set-slam" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="set-slam-list" aria-describedby="set-slam-desc" data-value="fist"><span class="dd-text">Fist</span><svg class="dd-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <ul class="dd-menu" id="set-slam-list" role="listbox" aria-label="Table slam animation" tabindex="-1" hidden>
+            <li role="option" id="set-slam-opt-none" data-value="none" aria-selected="false"><span>None</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            <li role="option" id="set-slam-opt-fist" data-value="fist" aria-selected="true"><span>Fist</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            <li role="option" id="set-slam-opt-shake" data-value="shake" aria-selected="false"><span>Shake</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            </ul>
           </div>
         </div>
       </div>

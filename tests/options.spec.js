@@ -1,6 +1,6 @@
 const { test, expect } = require("./fixtures");
 
-// The options page: two tabs (Categories, Statistics) under a sticky top bar that also holds Backup & Restore.
+// The options page: three tabs (Categories, Statistics, Settings) under a sticky top bar that also holds Backup & Restore.
 
 const notes = (categories, trainingStats) => ({
   lichessNotes: { categories, meta: { version: 1, updatedAt: 0, ...(trainingStats ? { trainingStats } : {}) } },
@@ -18,12 +18,15 @@ const tab = (page, name) => page.getByRole("tab", { name });
 const backupButton = (page) => page.getByRole("button", { name: "Backup & Restore" });
 const backupDialog = (page) => page.getByRole("dialog", { name: "Backup & Restore" });
 
-test("two tabs, Categories first: one panel shows at a time, and the tabs work from the keyboard", async ({ context, extensionUrl, seedStorage }) => {
+test("three tabs, Categories first: one panel shows at a time, and the tabs work from the keyboard", async ({ context, extensionUrl, seedStorage }) => {
   await seedStorage({ ...notes({ Pins: ["abc12"] }, cycles(3)) });
   const page = await optionsPage({ context, extensionUrl });
   await expect(page.getByRole("tablist")).toBeVisible();
   await expect(tab(page, "Categories")).toHaveAttribute("aria-selected", "true"); // the default
   await expect(tab(page, "Statistics")).toHaveAttribute("aria-selected", "false");
+  await expect(tab(page, "Settings")).toHaveAttribute("aria-selected", "false");
+  await expect(page.getByRole("tab")).toHaveText([/Categories/, /Statistics/, /Settings/]); // in this order
+  await expect(page.locator("#panel-settings")).toBeHidden();
 
   // Categories: search, New Category and the list; nothing of Statistics
   await expect(page.locator("#search-input")).toBeVisible();
@@ -42,7 +45,7 @@ test("two tabs, Categories first: one panel shows at a time, and the tabs work f
   await expect(page.locator(".category-card")).toBeHidden();
 
   // each tab controls its own panel
-  for (const [name, panel] of [["Categories", "#panel-categories"], ["Statistics", "#panel-stats"]]) {
+  for (const [name, panel] of [["Categories", "#panel-categories"], ["Statistics", "#panel-stats"], ["Settings", "#panel-settings"]]) {
     const id = await tab(page, name).getAttribute("aria-controls");
     expect(`#${id}`).toBe(panel);
     await expect(page.locator(panel)).toHaveAttribute("role", "tabpanel");
@@ -57,13 +60,20 @@ test("two tabs, Categories first: one panel shows at a time, and the tabs work f
   await page.keyboard.press("ArrowRight");
   await expect(tab(page, "Statistics")).toBeFocused();
   await expect(page.locator("#stats-table-container")).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(tab(page, "Settings")).toBeFocused();
+  await expect(page.locator("#panel-settings")).toBeVisible();
+  await expect(page.locator("#stats-table-container")).toBeHidden();
+  await page.keyboard.press("ArrowRight"); // wraps round to the first
+  await expect(tab(page, "Categories")).toBeFocused();
   await page.keyboard.press("Home");
   await expect(tab(page, "Categories")).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("End");
-  await expect(tab(page, "Statistics")).toHaveAttribute("aria-selected", "true");
+  await expect(tab(page, "Settings")).toHaveAttribute("aria-selected", "true");
   // only the selected tab is in the tab order
   await expect(tab(page, "Categories")).toHaveAttribute("tabindex", "-1");
-  await expect(tab(page, "Statistics")).toHaveAttribute("tabindex", "0");
+  await expect(tab(page, "Statistics")).toHaveAttribute("tabindex", "-1");
+  await expect(tab(page, "Settings")).toHaveAttribute("tabindex", "0");
 });
 
 test("the top bar is sticky: the tabs and Backup & Restore stay in view while a long list scrolls", async ({ context, extensionUrl, seedStorage }) => {
@@ -823,6 +833,13 @@ test("the page's text is readable on its surfaces, on both tabs and in the dialo
   await check("version", page.locator(".version-line"));
 
   await tab(page, "Statistics").click();
+  await tab(page, "Settings").click();
+  await check("settings heading", page.locator("#panel-settings h2"));
+  await check("setting name", page.locator("#panel-settings .setting-name").first());
+  await check("setting description", page.locator("#panel-settings .setting-desc").first());
+  await check("setting select", page.locator("#set-theme"));
+  await check("setting shortcut note", page.locator("#panel-settings .setting-shortcut"));
+  await tab(page, "Statistics").click();
   await check("history heading", page.locator(".section-header h2"));
   await check("table heading", page.locator(".stats-table th"));
   await check("table cell", page.locator(".stats-table .category-name"));
@@ -1069,4 +1086,265 @@ test("a cycle's date label follows the calendar: before midnight is Yesterday, n
   expect(await label("2026-03-07T23:30:00", "2026-03-09T00:30:00"), "two calendar days over the March change").toBe("2 days ago");
   expect(await label("2026-10-31T23:30:00", "2026-11-02T00:30:00"), "two calendar days over the October/November change").toBe("2 days ago");
   expect(await label("2026-10-31T23:30:00", "2026-11-01T00:30:00")).toMatch(/^Yesterday, /);
+});
+
+
+// ---- The Settings tab: Theme, completion animations, Auto-next and the table slam, saved the moment they change ----
+
+const SETTING_KEYS = ["overlayTheme", "completionAnimations", "autoNext", "slamAnimation"];
+const control = (page, name) => page.getByLabel(name, { exact: true });          // the two switches
+const combo = (page, name) => page.getByRole("combobox", { name, exact: true }); // the two dropdowns (custom, not native selects)
+const listbox = (page, name) => page.getByRole("listbox", { name, exact: true });
+const option = (page, name, text) => listbox(page, name).getByRole("option", { name: text, exact: true });
+const pick = async (page, name, text) => { await combo(page, name).click(); await option(page, name, text).click(); };
+const valueOf = (page, name) => combo(page, name).getAttribute("data-value");
+
+test("the Settings tab is a General card with Theme, Show completion animations, Auto-next when correct and Table slam animation, with sensible defaults", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  await expect(page.locator("#panel-settings")).toBeVisible();
+  await expect(page.locator("#panel-settings h2")).toHaveText("General");
+  const names = await page.locator("#panel-settings .setting-name").allTextContents();
+  expect(names).toEqual(["Theme", "Show completion animations", "Auto-next when correct", "Table slam animation"]);
+  for (const d of await page.locator("#panel-settings .setting-desc").all()) expect((await d.textContent()).trim().length, "every setting says what it does").toBeGreaterThan(15);
+
+  // nothing stored: the defaults
+  expect(await valueOf(page, "Theme")).toBe("auto");
+  await expect(combo(page, "Theme")).toHaveText("Auto (follow Lichess)");
+  await expect(control(page, "Show completion animations")).toBeChecked();
+  await expect(control(page, "Auto-next when correct")).toBeChecked();
+  expect(await valueOf(page, "Table slam animation")).toBe("fist");
+  await expect(combo(page, "Table slam animation")).toHaveText("Fist");
+  // the choices (the lists are closed until opened)
+  await expect(listbox(page, "Theme")).toBeHidden();
+  await combo(page, "Theme").click();
+  expect(await listbox(page, "Theme").getByRole("option").allTextContents()).toEqual(["Auto (follow Lichess)", "Dark", "Light"]);
+  await page.keyboard.press("Escape");
+  await combo(page, "Table slam animation").click();
+  expect(await listbox(page, "Table slam animation").getByRole("option").allTextContents()).toEqual(["None", "Fist", "Shake"]);
+  await page.keyboard.press("Escape");
+  // no native select is left to show the browser's own grey menu
+  await expect(page.locator("#panel-settings select")).toHaveCount(0);
+  // the two switches are real switches for assistive technology
+  await expect(page.getByRole("switch", { name: "Show completion animations" })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Auto-next when correct" })).toBeVisible();
+  await expect(page.locator("#panel-settings .setting-shortcut")).toHaveText("Shortcut: Shift+F");
+  // nothing was written just by looking at it, or by opening and closing a list
+  expect(await page.evaluate((keys) => browser.storage.local.get(keys), SETTING_KEYS)).toEqual({});
+});
+
+test("each setting is saved as soon as it changes, under its own key, and the page remembers it", async ({ context, extensionUrl, getStorage }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+
+  await pick(page, "Theme", "Dark");
+  await expect.poll(() => getStorage("overlayTheme")).toBe("dark");
+  await pick(page, "Theme", "Light");
+  await expect.poll(() => getStorage("overlayTheme")).toBe("light");
+  await pick(page, "Theme", "Auto (follow Lichess)");
+  await expect.poll(() => getStorage("overlayTheme")).toBe("auto");
+
+  await control(page, "Show completion animations").uncheck();
+  await expect.poll(() => getStorage("completionAnimations")).toBe(false);
+  await control(page, "Auto-next when correct").uncheck();
+  await expect.poll(() => getStorage("autoNext")).toBe(false);
+  await pick(page, "Table slam animation", "Shake");
+  await expect.poll(() => getStorage("slamAnimation")).toBe("shake");
+  await pick(page, "Table slam animation", "None");
+  await expect.poll(() => getStorage("slamAnimation")).toBe("none");
+  await control(page, "Show completion animations").check();
+  await expect.poll(() => getStorage("completionAnimations")).toBe(true);
+
+  // a fresh page shows what was saved
+  const again = await optionsPage({ context, extensionUrl });
+  await tab(again, "Settings").click();
+  await expect(control(again, "Show completion animations")).toBeChecked();
+  await expect(control(again, "Auto-next when correct")).not.toBeChecked();
+  expect(await valueOf(again, "Table slam animation")).toBe("none");
+  await expect(combo(again, "Table slam animation")).toHaveText("None");
+  expect(await valueOf(again, "Theme")).toBe("auto");
+});
+
+test("the Settings tab follows storage live, shows the default for a value it does not know, and never saves what was not changed", async ({ context, extensionUrl, seedStorage }) => {
+  await seedStorage({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer" }); // garbage
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  expect(await valueOf(page, "Theme")).toBe("auto");
+  expect(await valueOf(page, "Table slam animation")).toBe("fist");
+  await expect(control(page, "Show completion animations")).toBeChecked();
+  await expect(control(page, "Auto-next when correct")).toBeChecked();
+  // looking at it changed nothing in storage
+  expect(await page.evaluate(() => browser.storage.local.get(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations"]))).toEqual({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer" });
+
+  // changed from elsewhere (another options tab): this page catches up
+  await page.evaluate(() => browser.storage.local.set({ overlayTheme: "dark", slamAnimation: "shake", autoNext: false, completionAnimations: false }));
+  await expect(combo(page, "Theme")).toHaveText("Dark");
+  expect(await valueOf(page, "Theme")).toBe("dark");
+  await expect(combo(page, "Table slam animation")).toHaveText("Shake");
+  await expect(control(page, "Auto-next when correct")).not.toBeChecked();
+  await expect(control(page, "Show completion animations")).not.toBeChecked();
+  await page.evaluate(() => browser.storage.local.remove(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations"]));
+  await expect(combo(page, "Theme")).toHaveText("Auto (follow Lichess)");
+  await expect(combo(page, "Table slam animation")).toHaveText("Fist");
+});
+
+test("the switches work from the keyboard and tell a screen reader what changed", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  await control(page, "Auto-next when correct").focus();
+  await page.keyboard.press("Space");
+  await expect(control(page, "Auto-next when correct")).not.toBeChecked();
+  await expect(page.locator("#sr-status")).toContainText("Auto-next when correct");
+  await expect(page.locator("#sr-status")).toContainText(/off/i);
+  await pick(page, "Table slam animation", "Shake");
+  await expect(page.locator("#sr-status")).toHaveText("Table slam animation: Shake");
+});
+
+// ---- The dropdowns: dark custom menus, not the browser's own grey one ----
+
+test("a dropdown is an accessible combobox: its list opens under it, as wide as the field, dark, with the chosen item ticked", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  const trigger = combo(page, "Theme");
+  await expect(trigger).toHaveAttribute("aria-haspopup", "listbox");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const list = listbox(page, "Theme");
+  await expect(list).toBeVisible();
+
+  const t = await trigger.boundingBox();
+  const l = await list.boundingBox();
+  expect(l.y, "opens below the field").toBeGreaterThan(t.y + t.height - 1);
+  expect(l.y - (t.y + t.height), "close to it").toBeLessThan(14);
+  expect(Math.abs(l.x - t.x), "aligned to its left edge").toBeLessThan(1.5);
+  expect(Math.abs(l.width - t.width), "as wide as the field").toBeLessThan(1.5);
+  // the two dropdowns are the same width as each other
+  await page.keyboard.press("Escape");
+  const other = await combo(page, "Table slam animation").boundingBox();
+  expect(Math.abs(other.width - t.width), "consistent widths").toBeLessThan(1.5);
+
+  // dark surface, a rounded corner, a border: nothing of the native menu
+  await trigger.click();
+  const look = await list.evaluate((el) => { const c = getComputedStyle(el); const m = c.backgroundColor.match(/[\d.]+/g).map(Number); return { r: m[0], g: m[1], b: m[2], radius: parseFloat(c.borderTopLeftRadius), border: c.borderTopWidth, shadow: c.boxShadow }; });
+  expect(Math.max(look.r, look.g, look.b), "a dark navy menu").toBeLessThan(60);
+  expect(look.radius, "rounded").toBeGreaterThanOrEqual(6);
+  expect(look.border).toBe("1px");
+  // the chosen item is marked, with a tick that shows only on it
+  const sel = list.getByRole("option", { selected: true });
+  await expect(sel).toHaveCount(1);
+  await expect(sel).toHaveText("Auto (follow Lichess)");
+  const tick = (o) => o.locator(".dd-check").evaluate((el) => Number(getComputedStyle(el).opacity));
+  expect(await tick(sel)).toBe(1);
+  expect(await tick(option(page, "Theme", "Dark"))).toBe(0);
+});
+
+test("a dropdown works from the keyboard: arrows, Home, End, Enter, Space, Escape, Tab, and typing a letter", async ({ context, extensionUrl, getStorage }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  const trigger = combo(page, "Table slam animation");
+  const list = listbox(page, "Table slam animation");
+  const active = () => trigger.getAttribute("aria-activedescendant").then((id) => page.locator(`[id="${id}"]`).textContent());
+
+  await trigger.focus();
+  await page.keyboard.press("ArrowDown"); // opens, on the chosen one
+  await expect(list).toBeVisible();
+  expect(await active()).toBe("Fist");
+  await page.keyboard.press("ArrowDown");
+  expect(await active()).toBe("Shake");
+  await page.keyboard.press("ArrowDown"); // stops at the end
+  expect(await active()).toBe("Shake");
+  await page.keyboard.press("Home");
+  expect(await active()).toBe("None");
+  await page.keyboard.press("End");
+  expect(await active()).toBe("Shake");
+  await page.keyboard.press("ArrowUp");
+  expect(await active()).toBe("Fist");
+  await page.keyboard.press("Enter"); // chooses and closes, focus stays on the field
+  await expect(list).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(await getStorage("slamAnimation"), "choosing the one already chosen changes nothing").toBeUndefined();
+
+  // Escape closes without choosing, and gives focus back
+  await page.keyboard.press("Enter");
+  await expect(list).toBeVisible();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Escape");
+  await expect(list).toBeHidden();
+  await expect(trigger).toBeFocused();
+  expect(await getStorage("slamAnimation")).toBeUndefined();
+  await expect(trigger).toHaveText("Fist");
+
+  // Space opens and chooses too
+  await page.keyboard.press("Space");
+  await expect(list).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Space");
+  await expect(trigger).toHaveText("Shake");
+  await expect.poll(() => getStorage("slamAnimation")).toBe("shake");
+
+  // typing the first letter jumps to a matching item
+  await page.keyboard.press("ArrowDown");
+  await expect(list).toBeVisible();
+  await page.keyboard.type("n");
+  expect(await active()).toBe("None");
+  // Tab closes it without choosing and moves on
+  await page.keyboard.press("Tab");
+  await expect(list).toBeHidden();
+  await expect(trigger).toHaveText("Shake");
+});
+
+test("clicking outside, or on another dropdown, closes an open one; only one is open at a time", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  await combo(page, "Theme").click();
+  await expect(listbox(page, "Theme")).toBeVisible();
+  await page.locator("#panel-settings h2").click(); // outside
+  await expect(listbox(page, "Theme")).toBeHidden();
+  await expect(combo(page, "Theme")).toHaveAttribute("aria-expanded", "false");
+
+  await combo(page, "Theme").click();
+  await combo(page, "Table slam animation").click(); // another field
+  await expect(listbox(page, "Theme")).toBeHidden();
+  await expect(listbox(page, "Table slam animation")).toBeVisible();
+  await combo(page, "Table slam animation").click(); // the same field again: toggles
+  await expect(listbox(page, "Table slam animation")).toBeHidden();
+  expect(await page.evaluate((keys) => browser.storage.local.get(keys), SETTING_KEYS), "none of that saved anything").toEqual({});
+});
+
+test("a dropdown opens above its field when there is no room below", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  const trigger = combo(page, "Table slam animation"); // the lowest row
+  const y = (await trigger.boundingBox()).y;
+  await page.setViewportSize({ width: 1100, height: Math.round(y + 90) }); // only about 50px below the field
+  await trigger.click();
+  const list = listbox(page, "Table slam animation");
+  await expect(list).toBeVisible();
+  const t = await trigger.boundingBox();
+  const l = await list.boundingBox();
+  expect(l.y + l.height, "the whole list sits above the field").toBeLessThan(t.y + 1);
+  expect(l.y, "and on screen").toBeGreaterThanOrEqual(0);
+});
+
+test("the dropdown's hover, selection and focus are subtle and in the page's own colours, not the browser's bright blue", async ({ context, extensionUrl }) => {
+  const page = await optionsPage({ context, extensionUrl });
+  await tab(page, "Settings").click();
+  await combo(page, "Theme").click();
+  const dark = option(page, "Theme", "Dark");
+  await dark.hover();
+  const hover = await dark.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const rest = await option(page, "Theme", "Light").evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(hover, "hover changes the background").not.toBe(rest);
+  const rgb = hover.match(/[\d.]+/g).map(Number);
+  expect(rgb[3] ?? 1, "a muted, translucent blue, not a solid highlight").toBeLessThan(0.4);
+  expect(rgb[2], "bluish").toBeGreaterThan(rgb[0]);
+  // the focus ring on the field is a thin one (the native 3px+ default is gone)
+  await page.keyboard.press("Escape");
+  await combo(page, "Theme").focus();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  const ring = await combo(page, "Theme").evaluate((el) => getComputedStyle(el).outlineWidth);
+  expect(parseFloat(ring), "a thin focus ring").toBeLessThanOrEqual(2);
+  expect(parseFloat(ring)).toBeGreaterThan(0);
 });
