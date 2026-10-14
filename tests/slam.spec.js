@@ -330,23 +330,30 @@ test("Shift+H: a fist lands on the dimmed board, the table shakes, and when it i
   const scene = await page.evaluate(() => {
     const box = document.querySelector("[data-wpk-fist]");
     const hand = box.querySelector("[data-wpk-fist-hand]");
-    const dim = box.querySelector("[data-wpk-fist-dim]");
     const board = document.querySelector(".cg-wrap").getBoundingClientRect();
-    const h = hand.getBoundingClientRect();
-    return { glyph: hand.textContent, events: getComputedStyle(box).pointerEvents, hidden: box.getAttribute("aria-hidden"), position: getComputedStyle(box).position, big: h.width, boardWidth: board.width, dimRect: dim && (({ x, y, width, height }) => ({ x, y, width, height }))(dim.getBoundingClientRect()), boardRect: { x: board.x, y: board.y, width: board.width, height: board.height }, hasDim: !!dim };
+    return {
+      svg: !!hand.querySelector("svg"), paths: hand.querySelectorAll("svg path").length, text: hand.textContent,
+      events: getComputedStyle(box).pointerEvents, hidden: box.getAttribute("aria-hidden"), position: getComputedStyle(box).position,
+      big: hand.getBoundingClientRect().width, boardWidth: board.width,
+      hasDim: !!box.querySelector("[data-wpk-fist-dim]"), hasShadow: !!box.querySelector("[data-wpk-fist-shadow]"), dust: box.querySelectorAll("[data-wpk-fist-dust]").length,
+    };
   });
-  expect(scene.glyph).toBe("\u{1F44A}");
+  expect(scene.svg, "a drawn fist (there is no emoji for it)").toBe(true);
+  expect(scene.paths, "with its fingers and thumb").toBeGreaterThanOrEqual(6);
+  expect(scene.text, "no emoji glyph").toBe("");
   expect(scene.events, "never takes a click").toBe("none");
   expect(scene.hidden).toBe("true");
   expect(scene.position).toBe("fixed");
-  expect(scene.big, "a big fist").toBeGreaterThan(scene.boardWidth * 0.25);
+  expect(scene.big, "a big fist").toBeGreaterThan(scene.boardWidth * 0.4);
   expect(scene.hasDim, "the board is dimmed under it").toBe(true);
+  expect(scene.hasShadow, "it casts a shadow on the board").toBe(true);
+  expect(scene.dust, "and the hit throws up dust").toBeGreaterThanOrEqual(12);
   await settled(page);
   await expect(page.locator("[data-wpk-fist]")).toHaveCount(0);
   expect(await snapshot(page)).toEqual(before);
 });
 
-test("the pieces answer the fist in three ways: most tilt, some hop, some topple onto their side, and each toppling piece clicks", async ({ context }) => {
+test("the pieces answer the fist in three ways: most tilt, some hop, some topple onto their side (the click is a silent placeholder for now)", async ({ context }) => {
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(false));
@@ -360,8 +367,8 @@ test("the pieces answer the fist in three ways: most tilt, some hop, some topple
   expect(tilted, "most only tilt").toBeGreaterThan(toppled);
   expect(hopped, "a few just hop").toBeGreaterThanOrEqual(1);
   expect(toppled + tilted + hopped).toBe(t.length);
-  // the thud of the hit (a tone and a noise burst) plus a click (a noise tick and a blip) for every toppling piece
-  expect(await world("globalThis.__slamAudio.started"), "the clicks").toBe(2 + 2 * toppled);
+  // only the thud of the hit (a tone and a noise burst): the click of a falling piece is a placeholder for now, silent
+  expect(await world("globalThis.__slamAudio.started"), "no click sound yet, just the thud").toBe(2);
   expect(await world("globalThis.__slamAudio.contexts")).toBe(1);
   await settled(page);
 });
@@ -453,17 +460,50 @@ test("the fist animates only translate, rotate, scale and opacity, and does noth
   await settled(page);
 });
 
-test("restarting the fist silences what the cancelled one had scheduled: no clicks for pieces that never fall", async ({ context }) => {
+test("restarting the fist silences what the cancelled one had scheduled: the thud of a hit that never lands", async ({ context }) => {
   const page = await slamPage(context);
   const world = await inExtensionWorld(context, page);
   await world(STUB_AUDIO(false));
   await page.keyboard.press("Shift+H");
   const first = await world("globalThis.__slamAudio.started");
-  expect(first, "the first press scheduled a thud and clicks").toBeGreaterThanOrEqual(4);
+  expect(first, "the first press scheduled the thud (a tone and a noise burst)").toBe(2);
   expect(await world("globalThis.__slamAudio.silenced")).toBe(0);
   await page.waitForTimeout(60);
   await page.keyboard.press("Shift+H");
   expect(await world("globalThis.__slamAudio.silenced"), "every source of the first press was stopped").toBe(first);
+  await settled(page);
+});
+
+test("the fist comes down from above to the middle of the board, its shadow tightens as it touches, and the dust bursts at the hit", async ({ context }) => {
+  const page = await slamPage(context);
+  await page.keyboard.press("Shift+H");
+  const at = (ms) => page.evaluate((t) => {
+    window.__fistAnims = window.__fistAnims || document.getAnimations();
+    window.__fistAnims.forEach((a) => { a.pause(); a.currentTime = t; });
+    const b = document.querySelector(".cg-wrap").getBoundingClientRect();
+    const h = document.querySelector("[data-wpk-fist-hand]").getBoundingClientRect();
+    const sh = document.querySelector("[data-wpk-fist-shadow]");
+    const dust = [...document.querySelectorAll("[data-wpk-fist-dust]")].map((e) => Number(getComputedStyle(e).opacity));
+    return { handBottom: h.bottom, handCentreY: h.top + h.height / 2, handCentreX: h.left + h.width / 2, boardTop: b.top, boardCentreX: b.left + b.width / 2, boardCentreY: b.top + b.height / 2, shadow: Number(getComputedStyle(sh).opacity), dust: Math.max(...dust), dustSeen: dust.filter((o) => o > 0.1).length };
+  }, ms);
+  const start = await at(0);
+  expect(start.handBottom, "it starts above the board").toBeLessThan(start.boardTop);
+  expect(start.shadow, "no shadow while it is high").toBeLessThan(0.05);
+  expect(start.dust, "no dust yet").toBe(0);
+  const near = await at(250);
+  expect(near.handCentreY, "on its way down").toBeGreaterThan(start.handCentreY);
+  expect(near.handCentreY, "not there yet").toBeLessThan(near.boardCentreY - 20);
+  expect(near.shadow, "the shadow is appearing as it nears").toBeGreaterThan(start.shadow);
+  const hit = await at(380);
+  expect(Math.abs(hit.handCentreX - hit.boardCentreX), "it lands in the middle (across)").toBeLessThan(6);
+  expect(Math.abs(hit.handCentreY - hit.boardCentreY), "and in the middle (down)").toBeLessThan(10);
+  expect(hit.shadow, "the shadow is at its darkest as it touches").toBeGreaterThan(0.5);
+  expect(hit.shadow).toBeGreaterThan(near.shadow);
+  const after = await at(560);
+  expect(after.dustSeen, "dust is thrown up after the hit").toBeGreaterThanOrEqual(10);
+  const gone = await at(1400);
+  expect(gone.handCentreY, "then the fist lifts away").toBeLessThan(hit.boardCentreY - 100);
+  await page.evaluate(() => window.__fistAnims.forEach((a) => a.cancel()));
   await settled(page);
 });
 

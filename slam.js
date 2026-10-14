@@ -28,6 +28,10 @@
 
   const rand = (min, max) => min + Math.random() * (max - min);
 
+  // The fist, seen from the palm side (there is no emoji for it): four curled fingers on the left, the thumb folded across on the
+  // right, drawn in flat yellows. Static markup, parsed with DOMParser (never through the HTML parser of the page, and never built from page data).
+  const FIST_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 516 370" width="100%" height="100%" aria-hidden="true"><path fill="#E4B13F" d="M62 118C30 128 28 176 42 196C26 214 34 262 54 274C46 300 66 336 100 338C150 344 215 330 262 316C300 335 360 330 410 300C452 276 470 220 466 170C464 140 450 124 420 118C380 98 330 60 300 40C262 14 205 8 170 36C152 50 140 62 128 78C104 82 78 96 62 118Z"/><path fill="#D39E39" d="M205 120C230 112 262 120 290 92C268 150 262 198 292 224C250 226 236 262 244 300C222 304 190 292 180 262C196 250 204 220 200 190C198 160 200 136 205 120Z"/><path fill="#F0C84F" d="M82 100C50 104 38 138 44 158C48 176 66 186 92 184C140 182 196 176 222 160C240 148 236 122 214 114C180 104 120 94 82 100Z"/><path fill="#F0C84F" d="M70 156C44 160 40 196 46 214C52 232 76 240 100 238C150 236 208 228 236 212C252 200 246 172 224 166C184 156 112 150 70 156Z"/><path fill="#F0C84F" d="M70 214C46 220 44 252 52 268C60 284 86 292 112 290C160 288 214 280 240 266C256 254 248 228 226 222C186 214 114 208 70 214Z"/><path fill="#F0C84F" d="M92 268C72 272 66 300 76 316C86 330 112 336 136 334C176 330 218 322 238 310C248 300 242 282 226 278C196 270 130 262 92 268Z"/><path fill="#F0C84F" d="M300 64C332 90 372 114 410 128C446 134 466 150 468 180C470 226 452 270 410 298C372 322 322 330 286 316C250 312 238 280 244 252C250 224 282 214 304 214C330 214 340 190 330 160C322 134 292 120 282 96C276 82 286 68 300 64Z"/><path fill="#F4D25E" d="M168 40C196 14 252 14 288 40C300 50 312 60 322 70C294 62 262 56 238 66C212 78 196 96 176 98C146 100 134 76 142 62C148 54 158 48 168 40Z"/><path fill="#E4B13F" opacity=".55" d="M236 66C262 56 294 62 322 70C300 84 270 88 248 84C236 80 232 72 236 66Z"/><path fill="#FBE79A" opacity=".7" d="M178 66C196 50 224 44 250 48C226 54 202 66 190 84C182 82 174 76 178 66Z"/><path fill="none" stroke="#FBE79A" stroke-width="7" stroke-linecap="round" opacity=".75" d="M184 126C200 128 212 134 214 148M188 188C204 190 216 196 218 210M196 252C210 254 220 260 222 272"/><path fill="none" stroke="#D39E39" stroke-width="6" stroke-linecap="round" opacity=".8" d="M84 150C130 154 190 156 228 168M80 210C132 216 192 220 236 226M96 262C140 268 190 272 232 282"/></svg>';
+
   /** The one audio context and compressor, made on the first key press (a user gesture). Throws if there is no audio. */
   function graph() {
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -79,40 +83,14 @@
     }
   }
 
-  /** The click of a chess piece landing on its side, `delay` ms from now: a short tick of noise and a high blip. Never throws. */
-  function click(delay) {
-    try {
-      if (!graph()) return;
-      const t = audio.currentTime + delay / 1000;
-      const length = Math.floor(audio.sampleRate * 0.03);
-      const buffer = audio.createBuffer(1, length, audio.sampleRate);
-      const samples = buffer.getChannelData(0);
-      for (let i = 0; i < length; i++) samples[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2);
-      const tick = audio.createBufferSource();
-      const band = audio.createBiquadFilter();
-      const tickGain = audio.createGain();
-      tick.buffer = buffer;
-      band.type = "bandpass";
-      band.frequency.value = 2600;
-      tickGain.gain.value = 0.55;
-      tick.connect(band).connect(tickGain).connect(master);
-      tick.start(t);
-      sounds.push(tick);
-
-      const blip = audio.createOscillator();
-      const blipGain = audio.createGain();
-      blip.type = "triangle";
-      blip.frequency.setValueAtTime(1500, t);
-      blip.frequency.exponentialRampToValueAtTime(700, t + 0.05);
-      blipGain.gain.setValueAtTime(0.25, t);
-      blipGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-      blip.connect(blipGain).connect(master);
-      blip.start(t);
-      blip.stop(t + 0.07);
-      sounds.push(blip);
-    } catch (_) {
-      // no sound: the pieces still fall
-    }
+  /**
+   * PLACEHOLDER: the sound of a chess piece landing on its side, `delay` ms from now. The first attempt (a noise tick and a
+   * blip) did not sound good, so it was taken out; the animation still calls this once per toppling piece (at most 8 a press),
+   * so a better sound can be added here later without touching anything else. A sound added here must be pushed on `sounds`
+   * (so a restart can silence it), go through `master`, and never throw.
+   */
+  function click(delay) { // eslint-disable-line no-unused-vars
+    void delay;
   }
 
   /** A cloud of dust thrown up along the board's lower edges. Returns its animations. */
@@ -313,20 +291,42 @@
     const total = impact + 1100;
     const at = (ms) => ms / total;
     try {
-      // the scene: a dimmer over the board and the fist, in one fixed, click-through, hidden-from-assistive-tech layer
+      // the scene: a dimmer over the board, the fist, its shadow on the board and the dust of the hit, in one fixed,
+      // click-through, hidden-from-assistive-tech layer
       const box = document.createElement("div");
       box.setAttribute("data-wpk-fist", "");
       box.setAttribute("aria-hidden", "true");
       box.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483000;overflow:hidden";
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
       const dim = document.createElement("span");
       dim.setAttribute("data-wpk-fist-dim", "");
       dim.style.cssText = `position:fixed;left:${rect.left.toFixed(1)}px;top:${rect.top.toFixed(1)}px;width:${rect.width.toFixed(1)}px;height:${rect.height.toFixed(1)}px;background:rgba(0,0,0,0.5);opacity:0`;
-      const size = Math.round(rect.width * 0.5);
+      const width = Math.round(rect.width * 0.62);
+      const height = Math.round(width * 370 / 516);
+      // the shadow on the board, under the fist: wide and faint while it is high, tight and dark as it touches
+      const shadow = document.createElement("span");
+      shadow.setAttribute("data-wpk-fist-shadow", "");
+      const shadowW = Math.round(width * 0.8);
+      const shadowH = Math.round(height * 0.16);
+      shadow.style.cssText = `position:fixed;left:${(cx - shadowW / 2).toFixed(1)}px;top:${(cy + height * 0.42 - shadowH / 2).toFixed(1)}px;width:${shadowW}px;height:${shadowH}px;border-radius:50%;background:radial-gradient(ellipse at center,rgba(0,0,0,0.85),rgba(0,0,0,0) 70%);opacity:0`;
       const hand = document.createElement("span");
       hand.setAttribute("data-wpk-fist-hand", "");
-      hand.textContent = "\u{1F44A}";
-      hand.style.cssText = `position:fixed;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;left:${(rect.left + rect.width / 2 - size / 2).toFixed(1)}px;top:${(rect.top + rect.height / 2 - size / 2).toFixed(1)}px;font-size:${Math.round(size * 0.82)}px;line-height:1;filter:drop-shadow(0 16px 12px rgba(0,0,0,0.55));opacity:0`;
-      box.append(dim, hand);
+      hand.style.cssText = `position:fixed;display:block;width:${width}px;height:${height}px;left:${(cx - width / 2).toFixed(1)}px;top:${(cy - height / 2).toFixed(1)}px;filter:drop-shadow(0 6px 5px rgba(0,0,0,0.35));opacity:0`;
+      hand.appendChild(document.importNode(new DOMParser().parseFromString(FIST_SVG, "image/svg+xml").documentElement, true));
+      box.append(dim, shadow, hand);
+      // the dust of the hit: puffs thrown outwards from the fist's base along the board, in a flattened ring
+      const puffs = [];
+      for (let i = 0; i < 16; i++) {
+        const angle = (i / 16) * Math.PI * 2 + rand(-0.15, 0.15);
+        const size = rand(40, 78);
+        const reach = rand(width * 0.35, width * 0.62);
+        const puff = document.createElement("span");
+        puff.setAttribute("data-wpk-fist-dust", "");
+        puff.style.cssText = `position:fixed;left:${(cx - size / 2).toFixed(1)}px;top:${(cy + height * 0.4 - size / 2).toFixed(1)}px;width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;border-radius:50%;background:radial-gradient(circle at 40% 40%,rgba(238,228,212,0.95),rgba(238,228,212,0) 70%);opacity:0`;
+        box.appendChild(puff);
+        puffs.push({ puff, dx: Math.cos(angle) * reach, dy: Math.sin(angle) * reach * 0.38 });
+      }
       mine.box = box; // before it is attached, so a failure to attach still gets cleaned up
       document.body.appendChild(box);
 
@@ -335,15 +335,31 @@
         { opacity: 1, offset: at(impact * 0.7) },
         { opacity: 1, offset: at(impact + 650) },
         { opacity: 0, offset: 1 },
-      ], { duration: total, easing: "ease-out" });
+      ], { duration: total, easing: "linear" });
+      // the fist comes down from above the board to its middle, accelerating, presses in a little, stays, and lifts away
+      const fall = Math.round(rect.height * 0.8 + height / 2);
       play(hand, [
-        { translate: "0 -110px", scale: "1.7", opacity: 0, offset: 0 },
-        { translate: "0 -70px", scale: "1.4", opacity: 1, offset: at(impact * 0.55), easing: "cubic-bezier(0.6, 0, 1, 0.5)" },
-        { translate: "0 8px", scale: "0.92", opacity: 1, offset: at(impact), easing: "ease-out" },
-        { translate: "0 0", scale: "1", opacity: 1, offset: at(impact + 90) },
-        { translate: "0 0", scale: "1", opacity: 1, offset: at(impact + 520) },
-        { translate: "0 -90px", scale: "1.5", opacity: 0, offset: 1 },
-      ], { duration: total, easing: "ease-in-out" });
+        { translate: `0 ${-fall}px`, scale: "1.12", opacity: 1, offset: 0, easing: "cubic-bezier(0.5, 0, 0.9, 0.55)" }, // accelerating down
+        { translate: "0 0", scale: "1", opacity: 1, offset: at(impact), easing: "ease-out" },
+        { translate: "0 7px", scale: "0.97", opacity: 1, offset: at(impact + 70) },
+        { translate: "0 0", scale: "1", opacity: 1, offset: at(impact + 150) },
+        { translate: "0 0", scale: "1", opacity: 1, offset: at(impact + 560) },
+        { translate: `0 ${-Math.round(fall * 0.7)}px`, scale: "1.1", opacity: 0, offset: 1 },
+      ], { duration: total, easing: "linear" }); // (easing is per keyframe: an easing on the whole animation would shift when the keyframes happen)
+      play(shadow, [
+        { scale: "1.9 1.6", opacity: 0, offset: 0, easing: "ease-in" },
+        { scale: "1.5 1.3", opacity: 0.2, offset: at(impact * 0.6), easing: "ease-in" },
+        { scale: "1", opacity: 0.7, offset: at(impact), easing: "ease-out" },
+        { scale: "1.06", opacity: 0.55, offset: at(impact + 560), easing: "ease-in" },
+        { scale: "1.7 1.5", opacity: 0, offset: 1 },
+      ], { duration: total, easing: "linear" });
+      for (const { puff, dx, dy } of puffs) {
+        play(puff, [
+          { translate: "0 0", scale: "0.3", opacity: 0, offset: 0 },
+          { opacity: 1, offset: 0.2 },
+          { translate: `${dx.toFixed(1)}px ${dy.toFixed(1)}px`, scale: `${rand(1.5, 2.3).toFixed(2)}`, opacity: 0, offset: 1 },
+        ], { duration: rand(650, 950), delay: impact + rand(0, 60), easing: "ease-out", fill: "both" });
+      }
 
       // the table: a recoil and a harder shake of the board and the screen at the hit
       play(board, [
