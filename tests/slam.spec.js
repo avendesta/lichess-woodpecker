@@ -22,7 +22,7 @@ const slamPage = async (context, html) => {
   return page;
 };
 const slamming = (page) => page.evaluate(() => document.getAnimations().length);
-const settled = (page) => page.waitForFunction(() => document.getAnimations().length === 0 && !document.querySelector("#wpk-slam-dust"), null, { timeout: 8000 });
+const settled = (page) => page.waitForFunction(() => document.getAnimations().length === 0 && !document.querySelector("[data-wpk-slam-dust]"), null, { timeout: 8000 });
 const centres = (page) => page.evaluate(() => [...document.querySelectorAll("cg-board piece")].map((e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }));
 const snapshot = (page) => page.evaluate(() => ({
   styles: [...document.querySelectorAll("cg-board > *")].map((e) => e.getAttribute("style")),
@@ -45,11 +45,11 @@ async function inExtensionWorld(context, page) {
   return (expression) => cdp.send("Runtime.evaluate", { expression, contextId: id, returnByValue: true }).then((r) => r.result.value);
 }
 const STUB_AUDIO = (broken) => `(() => {
-  const seen = (globalThis.__slamAudio = { contexts: 0, started: 0 });
+  const seen = (globalThis.__slamAudio = { contexts: 0, started: 0, compressors: 0 });
   const param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}, linearRampToValueAtTime() {} });
   const node = () => ({ connect(n) { return n; }, start() { seen.started++; }, stop() {}, gain: param(), frequency: param(), type: "", buffer: null });
   window.AudioContext = class { constructor() { seen.contexts++; ${broken ? 'throw new Error("blocked");' : ""} this.state = "running"; this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; }
-    resume() { return Promise.resolve(); } createGain() { return node(); } createOscillator() { return node(); } createBiquadFilter() { return node(); } createBufferSource() { return node(); }
+    resume() { return Promise.resolve(); } createGain() { return node(); } createDynamicsCompressor() { seen.compressors++; return node(); } createOscillator() { return node(); } createBiquadFilter() { return node(); } createBufferSource() { return node(); }
     createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; } };
 })()`;
 
@@ -65,7 +65,7 @@ test("Shift+F slams the board: board, screen, pieces and dust all move, then eve
     main: document.querySelector("main").getAnimations().length,
     pieces: [...document.querySelectorAll("cg-board piece")].map((p) => p.getAnimations().length),
     ghostOrSquare: [...document.querySelectorAll("cg-board square")].map((p) => p.getAnimations().length),
-    dust: document.querySelectorAll("#wpk-slam-dust span").length,
+    dust: document.querySelectorAll("[data-wpk-slam-dust] span").length,
   }));
   expect(during.board, "the board is slammed").toBeGreaterThan(0);
   expect(during.main, "the screen shakes").toBeGreaterThan(0);
@@ -128,18 +128,48 @@ test("only Shift+F does it: plain F, Ctrl/Alt/Meta+Shift+F, a held key and typin
   await settled(page);
 });
 
-test("pressing it again while it plays does not stack the effect", async ({ context }) => {
+const delays = (page) => page.evaluate(() => ({
+  boardAnims: document.querySelector(".cg-wrap").getAnimations().length,
+  mainAnims: document.querySelector("main").getAnimations().length,
+  mainDelay: document.querySelector("main").getAnimations()[0]?.effect.getTiming().delay,
+  boardElapsed: document.querySelector(".cg-wrap").getAnimations()[0]?.currentTime,
+  pieces: [...document.querySelectorAll("cg-board piece")].map((p) => p.getAnimations().length),
+  clouds: document.querySelectorAll("[data-wpk-slam-dust]").length,
+}));
+
+test("pressing it again while it plays slams again at once, with a quicker wind-up, instead of waiting or doubling up", async ({ context }) => {
   const page = await slamPage(context);
   await page.keyboard.press("Shift+F");
-  const first = await slamming(page);
+  const first = await delays(page);
+  expect(first.mainDelay, "the first slam keeps its full wind-up").toBe(300);
+  await page.waitForTimeout(150);
   await page.keyboard.press("Shift+F");
-  await page.keyboard.press("Shift+F");
-  expect(await slamming(page), "no extra animations").toBe(first);
-  expect(await page.locator("#wpk-slam-dust").count(), "one dust cloud").toBe(1);
+  const second = await delays(page);
+  expect(second.boardAnims, "one board animation, not two").toBe(1);
+  expect(second.mainAnims, "one shake, not two").toBe(1);
+  expect(second.pieces.every((n) => n === 1), `one wobble per piece: ${second.pieces}`).toBe(true);
+  expect(second.boardElapsed, "it started afresh, at once").toBeLessThan(80);
+  expect(second.mainDelay, "a quick wind-up on a repeat").toBeLessThanOrEqual(150);
+  expect(second.clouds, "the first cloud is still fading, the second is thrown up").toBe(2);
   await settled(page);
-  await page.keyboard.press("Shift+F"); // and once it is over it works again
-  expect(await slamming(page)).toBeGreaterThan(0);
+});
+
+test("mashing Shift+F: every press slams, nothing piles up, and the board ends exactly where it began", async ({ context }) => {
+  const page = await slamPage(context);
+  const before = await snapshot(page);
+  let worstClouds = 0;
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press("Shift+F");
+    const d = await delays(page);
+    expect(d.boardAnims, `press ${i + 1}: one board animation`).toBe(1);
+    expect(d.pieces.every((n) => n === 1), `press ${i + 1}: one wobble per piece`).toBe(true);
+    expect(d.boardElapsed, `press ${i + 1}: started at once`).toBeLessThan(80);
+    worstClouds = Math.max(worstClouds, d.clouds);
+    await page.waitForTimeout(70);
+  }
+  expect(worstClouds, "at most three dust clouds alive at once").toBeLessThanOrEqual(3);
   await settled(page);
+  expect(await snapshot(page), "everything back exactly as it was").toEqual(before);
 });
 
 test("people who asked for reduced motion get nothing: no motion and no sound", async ({ context }) => {
@@ -151,7 +181,7 @@ test("people who asked for reduced motion get nothing: no motion and no sound", 
   await page.keyboard.press("Shift+F");
   await page.waitForTimeout(300);
   expect(await slamming(page)).toBe(0);
-  expect(await page.locator("#wpk-slam-dust").count()).toBe(0);
+  expect(await page.locator("[data-wpk-slam-dust]").count()).toBe(0);
   expect(await world("globalThis.__slamAudio.contexts"), "no sound either").toBe(0);
 });
 
@@ -163,6 +193,9 @@ test("the slam comes with a thud, and a blocked or missing audio API never stops
   expect(await slamming(page)).toBeGreaterThan(0);
   expect(await world("globalThis.__slamAudio.contexts"), "one audio context").toBe(1);
   expect(await world("globalThis.__slamAudio.started"), "the thud (a low tone and a burst of noise)").toBeGreaterThanOrEqual(2);
+  await page.keyboard.press("Shift+F"); // a second press, straight away: its own thud
+  expect(await world("globalThis.__slamAudio.started"), "each press has its own thud").toBeGreaterThanOrEqual(4);
+  expect(await world("globalThis.__slamAudio.compressors"), "one shared compressor keeps stacked thuds from clipping").toBe(1);
   await settled(page);
   await page.keyboard.press("Shift+F");
   await settled(page);
@@ -184,7 +217,7 @@ test("with no board on the page (Lichess changed, or another puzzle page) it qui
   await page.keyboard.press("Shift+F");
   await page.waitForTimeout(300);
   expect(await slamming(page)).toBe(0);
-  expect(await page.locator("#wpk-slam-dust").count()).toBe(0);
+  expect(await page.locator("[data-wpk-slam-dust]").count()).toBe(0);
   expect(errors).toEqual([]);
 });
 
@@ -228,7 +261,7 @@ test("a piece that chessground is sliding is left alone, and cancelling the slam
   expect(animated[0], "the sliding piece is not wobbled").toBe(false);
   expect(animated.slice(1).every(Boolean), "the others are").toBe(true);
   await page.evaluate(() => document.getAnimations().forEach((a) => a.cancel()));
-  await expect(page.locator("#wpk-slam-dust"), "no dust left after a cancel").toHaveCount(0, { timeout: 1000 });
+  await expect(page.locator("[data-wpk-slam-dust]"), "no dust left after a cancel").toHaveCount(0, { timeout: 1000 });
   await page.keyboard.press("Shift+F");
   expect(await slamming(page), "and it can be used again straight away").toBeGreaterThan(0);
   await settled(page);
@@ -241,9 +274,31 @@ test("something unexpected inside a slam never leaves it stuck: it stops cleanly
   await world("globalThis.__real = window.DOMMatrixReadOnly; window.DOMMatrixReadOnly = function () { throw new Error('boom'); }; 1");
   await page.keyboard.press("Shift+F");
   await expect.poll(() => slamming(page), { message: "everything that had started is stopped" }).toBe(0);
-  expect(await page.locator("#wpk-slam-dust").count()).toBe(0);
+  expect(await page.locator("[data-wpk-slam-dust]").count()).toBe(0);
   await world("window.DOMMatrixReadOnly = globalThis.__real; 1");
   await page.keyboard.press("Shift+F");
   expect(await slamming(page), "usable again").toBeGreaterThan(0);
+  await settled(page);
+});
+
+test("a repeat slam measures the board at rest, so its dust starts at the board's real sides, not at the swollen, lifted ones", async ({ context }) => {
+  const page = await slamPage(context);
+  const rest = await page.evaluate(() => { const r = document.querySelector(".cg-wrap").getBoundingClientRect(); return { left: r.left, right: r.right, width: r.width }; });
+  await page.keyboard.press("Shift+F");
+  // freeze the board at the top of its wind-up (scaled up 6.5%): its box is clearly wider than the resting one
+  await page.evaluate(() => document.querySelector(".cg-wrap").getAnimations().forEach((a) => { a.pause(); a.currentTime = 200; }));
+  const lifted = await page.evaluate(() => document.querySelector(".cg-wrap").getBoundingClientRect().width);
+  expect(lifted - rest.width, "the board really is swollen when the second press arrives").toBeGreaterThan(20);
+  await page.keyboard.press("Shift+F");
+  // the newest cloud: from the tenth puff on they sit on the board's sides (centre x = left + 4 or right - 4)
+  const centres = await page.evaluate(() => {
+    const clouds = [...document.querySelectorAll("[data-wpk-slam-dust]")];
+    return [...clouds[clouds.length - 1].querySelectorAll("span")].slice(9).map((s) => parseFloat(s.style.left) + parseFloat(s.style.width) / 2);
+  });
+  expect(centres.length).toBeGreaterThan(3);
+  for (const x of centres) {
+    const off = Math.min(Math.abs(x - (rest.left + 4)), Math.abs(x - (rest.right - 4)));
+    expect(off, `a side puff starts ${off.toFixed(1)}px from the resting side`).toBeLessThan(1.5);
+  }
   await settled(page);
 });
