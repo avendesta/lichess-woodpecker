@@ -1,6 +1,6 @@
 {
   "name": "lichess-puzzle-notes",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "description": "Browser extension to save Lichess training puzzle IDs into user-defined categories.",
   "scripts": {
