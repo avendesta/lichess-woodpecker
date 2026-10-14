@@ -4,7 +4,7 @@
 
 # Lichess Woodpecker
 
-NOW AVAILABLE IN [GOOGLE WEB STORE](https://chromewebstore.google.com/detail/lichess-woodpecker/hiplnejlfcaelegbajdonblkcechfced)
+NOW AVAILABLE IN [GOOGLE WEB STORE](https://chromewebstore.google.com/detail/lichess-woodpecker/hiplnejlfcaelegbajdonblkcechfced) AND [FIREFOX ADD-ONS](https://addons.mozilla.org/en-US/firefox/addon/lichess-woodpecker/)
 
 A powerful browser extension for Lichess puzzle training with Woodpecker-style repetition practice. Save puzzles into categories, train them in randomized order, and track your performance with detailed statistics.
 
@@ -44,17 +44,20 @@ A powerful browser extension for Lichess puzzle training with Woodpecker-style r
 
 ### Installation
 
-#### Chrome
+#### From the stores (easiest)
+- **Chrome:** [Lichess Woodpecker on the Chrome Web Store](https://chromewebstore.google.com/detail/lichess-woodpecker/hiplnejlfcaelegbajdonblkcechfced)
+- **Firefox:** [Lichess Woodpecker on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lichess-woodpecker/)
+
+#### Chrome, from source
 1. Open `chrome://extensions/`
 2. Enable **Developer mode**
 3. Click **Load unpacked**
 4. Select the `lichess-woodpecker` folder
 5. The woodpecker icon appears in your toolbar
 
-#### Firefox (temporary install only)
-Firefox is supported but the add-on is not signed, so it can only be loaded temporarily —
-it is removed when Firefox restarts. A permanent install would require signing through
-[addons.mozilla.org](https://addons.mozilla.org).
+#### Firefox, from source (temporary install)
+A copy you build yourself is not signed, so Firefox only keeps it until it restarts. For a permanent install use
+[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/lichess-woodpecker/) above.
 
 1. Download the `.xpi` from the [latest release](https://github.com/avendesta/lichess-woodpecker/releases), or build it with `npm run package:firefox`
 2. Open `about:debugging#/runtime/this-firefox`
