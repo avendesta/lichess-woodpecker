@@ -18,7 +18,7 @@ source of truth to change or re-check them against.
 |---|---|
 | File | `lichess-puzzle-saver-v1.3.0.zip` (the file name still carries the project's old name; it contains Lichess Woodpecker) |
 | Where | `release/` in this repository after `npm run package`, or the same file attached to the [GitHub Release](https://github.com/avendesta/lichess-woodpecker/releases) |
-| Check | Manifest V3, version 1.3.0, 17 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
+| Check | Manifest V3, version 1.3.0, 18 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
 
 **What the Package tab shows after you upload.** The Draft column lists `storage, activeTab, scripting, host permission`. That is expected:
 
