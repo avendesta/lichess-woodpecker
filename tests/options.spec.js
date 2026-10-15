@@ -146,7 +146,7 @@ test("Export JSON from the dialog downloads the file and closes the dialog", asy
 
 test("the table's columns are Category, Time, Puzzles, Correct, Incorrect, Skipped, Accuracy and Completed, with icons and dividers", async ({ context, extensionUrl, seedStorage }) => {
   // the widest realistic row first: the longest name Woodpecker makes ("All Categories"), a long time, and a "Today, 11:22 AM" date
-  const widest = { category: "All Categories", timeTaken: 341_000, totalPuzzles: 6, correct: 1, incorrect: 1, skipped: 4, completedAt: Date.now() - 60_000 };
+  const widest = { category: "All Categories", timeTaken: 341_000, totalPuzzles: 6, correct: 1, incorrect: 1, skipped: 4, completedAt: Date.now() };
   await seedStorage(notes({}, [...cycles(11), widest]));
   const page = await optionsPage({ context, extensionUrl });
   await tab(page, "Statistics").click();
@@ -202,10 +202,12 @@ test("the table's columns are Category, Time, Puzzles, Correct, Incorrect, Skipp
 });
 
 test("every date the table can show fits: 'Yesterday, hh:mm AM' is the widest and is not clipped or scrolled", async ({ context, extensionUrl, seedStorage }) => {
-  const DAY = 86_400_000;
-  const row = (category, ago) => ({ category, timeTaken: 2_461_000, totalPuzzles: 108, correct: 80, incorrect: 22, skipped: 6, completedAt: Date.now() - ago });
-  // the longest name, a long time, and one row for each shape of date: today, yesterday, "N days ago", a full date
-  await seedStorage(notes({}, [row("All Categories", 60_000), row("All Categories", 30 * 3_600_000), row("All Categories", 4 * DAY), row("All Categories", 40 * DAY)]));
+  // Dates are seeded by calendar day, not by hours ago: "Yesterday" means before midnight, so "30 hours ago" is yesterday only
+  // when the test runs after 06:00 (CI ran it at 03:39 and got "2 days ago").
+  const day = (daysAgo, hour, minute) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); d.setHours(hour, minute, 0, 0); return d.getTime(); };
+  const row = (category, completedAt) => ({ category, timeTaken: 2_461_000, totalPuzzles: 108, correct: 80, incorrect: 22, skipped: 6, completedAt });
+  // the longest name, a long time, and one row for each shape of date: today, yesterday (the widest, 11:09 AM), "N days ago", a full date
+  await seedStorage(notes({}, [row("All Categories", Date.now()), row("All Categories", day(1, 11, 9)), row("All Categories", day(4, 11, 9)), row("All Categories", day(40, 11, 9))]));
   const page = await optionsPage({ context, extensionUrl });
   await tab(page, "Statistics").click();
   const dates = await page.locator("#stats-tbody .completed-date").allTextContents();
