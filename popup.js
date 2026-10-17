@@ -20,6 +20,9 @@ const btnNew = document.getElementById("btn-new");
 const newForm = document.getElementById("new-category");
 const newName = document.getElementById("new-name");
 const newError = document.getElementById("new-error");
+const newHint = document.getElementById("new-hint");
+const newCreate = document.getElementById("new-create");
+const toolbar = document.getElementById("toolbar");
 const newCancel = document.getElementById("new-cancel");
 const categoryList = document.getElementById("category-list");
 const btnTrainAll = document.getElementById("btn-train-all");
@@ -382,34 +385,57 @@ async function trainAll() {
   await startTrainingSession("All Categories", ids);
 }
 
-function showNewError(message) {
-  newError.textContent = message;
-  newError.hidden = false;
+// Creating a category replaces the search bar in the same place (same height, so nothing below it moves): Create is off for an
+// empty or duplicate name (a duplicate says so inside the field, and to screen readers), Enter creates, Escape or the close
+// button goes back to the search bar.
+function updateNewState() {
+  const name = newName.value.trim();
+  const duplicate = !!name && Object.keys(data.categories).some((c) => c.toLowerCase() === name.toLowerCase());
+  newCreate.disabled = !name || duplicate;
+  newHint.hidden = !duplicate;
+  newName.setAttribute("aria-invalid", String(duplicate));
+  newName.closest(".new-field").classList.toggle("is-invalid", duplicate);
+  newError.textContent = duplicate ? `A category named “${name}” already exists.` : "";
 }
 
 function openNewForm() {
+  toolbar.hidden = true;
   newForm.hidden = false;
-  newError.hidden = true;
   newName.value = "";
+  updateNewState();
   newName.focus();
 }
 
 function closeNewForm() {
   newForm.hidden = true;
-  newError.hidden = true;
+  toolbar.hidden = false;
+  newError.textContent = "";
 }
 
+let creating = false; // a second Enter while the first request is in flight would be refused as a duplicate: a false error
 async function createCategory(e) {
   e.preventDefault();
+  updateNewState();
+  if (newCreate.disabled || creating) return; // empty or duplicate: nothing to do
+  creating = true;
   const name = newName.value.trim();
-  if (!name) return showNewError("Category name cannot be empty.");
-  const resp = await browser.runtime.sendMessage({ type: "CREATE_CATEGORY", name });
-  if (!resp.ok) return showNewError(resp.error || "Could not create the category.");
+  let resp;
+  try {
+    resp = await browser.runtime.sendMessage({ type: "CREATE_CATEGORY", name });
+  } finally {
+    creating = false;
+  }
+  if (!resp.ok) { // refused by the background (a reserved or invalid name): say so and stay open for another try
+    showToast(resp.error || "Could not create the category.", "error");
+    newName.focus();
+    return;
+  }
 
   await loadData(); // the current puzzle is deliberately NOT saved into the new category
   query = "";
   searchInput.value = "";
   closeNewForm();
+  btnNew.focus(); // the bar that had focus is gone: keyboard users go on from + New, not from the top of the page
   renderAll();
   const row = categoryList.querySelector(`.category-row[data-cat="${CSS.escape(name)}"]`);
   if (row) {
@@ -447,13 +473,14 @@ function bindEvents() {
     renderList();
   });
 
-  btnNew.addEventListener("click", () => (newForm.hidden ? openNewForm() : closeNewForm()));
+  btnNew.addEventListener("click", openNewForm);
   newForm.addEventListener("submit", createCategory);
+  newName.addEventListener("input", updateNewState);
   newCancel.addEventListener("click", () => {
     closeNewForm();
     btnNew.focus();
   });
-  newName.addEventListener("keydown", (e) => {
+  newForm.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.stopPropagation();
       closeNewForm();

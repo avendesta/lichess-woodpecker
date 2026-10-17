@@ -300,7 +300,8 @@ input:focus-visible {
   gap: 8px;
 }
 
-.search {
+.search,
+.new-field {
   display: flex;
   flex: 1;
   align-items: center;
@@ -314,11 +315,13 @@ input:focus-visible {
   color: var(--text-muted);
 }
 
-.search:focus-within {
+.search:focus-within,
+.new-field:focus-within {
   border-color: var(--blue);
 }
 
-.search input {
+.search input,
+.new-field input {
   flex: 1;
   min-width: 0;
   border: none;
@@ -329,7 +332,8 @@ input:focus-visible {
   font-size: 13px;
 }
 
-.search input::placeholder {
+.search input::placeholder,
+.new-field input::placeholder {
   color: var(--text-dim);
 }
 
@@ -354,27 +358,32 @@ input:focus-visible {
   background: var(--action-sheen), var(--fill-bg-hover);
 }
 
-.new-row {
-  display: flex;
-  gap: 8px;
+/* The bar that replaces the search bar while a category is being named: the same height, so nothing below it moves */
+.toolbar[hidden] { display: none; }
+.new-toolbar { animation: bar-in 0.14s ease-out; }
+@keyframes bar-in { /* a fade only: nothing moves, so the bar is in its final place from the first frame */
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-toolbar { animation: none; }
 }
 
-.new-row input {
-  flex: 1;
-  min-width: 0;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid var(--blue);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
+.new-field { position: relative; min-width: 0; } /* (min-width 0: the hint must not push Create and the close button past the edge) */
+.new-field:focus-within { box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16), inset 0 1px 2px rgba(0, 0, 0, 0.3); } /* one soft blue ring, with the border */
+.new-field.is-invalid { border-color: var(--danger); } /* a class, not :has(), which Firefox 109 does not know */
+.new-hint {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--danger);
+  white-space: nowrap;
 }
 
 .btn-create,
 .btn-cancel {
-  height: 34px;
+  flex: none;
+  height: 35px;
   border-radius: 8px;
   border: 1px solid var(--border);
   font-size: 13px;
@@ -390,20 +399,32 @@ input:focus-visible {
   color: var(--action-text);
 }
 
-.btn-create:hover {
+.btn-create:hover:not(:disabled) {
   background: var(--action-sheen), var(--action-bg-hover);
 }
 
+.btn-create:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .btn-cancel {
-  width: 34px;
+  display: grid;
+  place-items: center;
+  width: 35px;
+  padding: 0;
   background: var(--bg-card);
   color: var(--text-muted);
 }
 
-.form-error {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--danger);
+.btn-cancel:hover {
+  color: var(--text);
+}
+
+.btn-create:focus-visible,
+.btn-cancel:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 /* ---- Category list: the only scrolling region ---- */

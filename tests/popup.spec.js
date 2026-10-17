@@ -325,26 +325,167 @@ test("a category can be created in the popup without saving the puzzle into it",
   await extPage.locator("#btn-new").click();
   await expect(extPage.locator("#new-name")).toBeFocused();
 
-  await extPage.locator("#new-name").press("Enter"); // empty
-  await expect(extPage.locator("#new-error")).toContainText("cannot be empty");
-  await extPage.locator("#new-name").fill("pins");
-  await extPage.locator("#new-name").press("Enter"); // clashes with Pins, case-insensitively
-  await expect(extPage.locator("#new-error")).toContainText("already exists");
-
   await extPage.locator("#new-name").fill("Endgame");
   await extPage.locator("#new-name").press("Enter");
   await expect(row(extPage, "Endgame")).toBeVisible(); // in the list at once
   await expect(row(extPage, "Endgame").locator(".cat-count")).toHaveText("0");
   await expect(extPage.locator("#new-category")).toBeHidden();
+  await expect(extPage.locator(".toolbar:not(#new-category)")).toBeVisible(); // the search bar is back
   const stored = await getStorage("lichessNotes");
   expect(stored.categories.Endgame).toEqual([]); // the puzzle was NOT saved into the new category
   await expect(extPage.locator("#puzzle-badge")).toHaveText("Not saved");
-
-  await extPage.locator("#btn-new").click();
-  await extPage.locator("#new-name").press("Escape");
-  await expect(extPage.locator("#new-category")).toBeHidden();
 });
 
+// ---- Create a category: the search bar is replaced, in the same place, by [ Category name ] [ Create ] [ x ] ----
+
+const btnNewOf = (page) => page.locator("#btn-new");
+const bar = (page) => page.locator("#toolbar");
+const form = (page) => page.locator("#new-category");
+const box = async (loc) => { const b = await loc.boundingBox(); return { x: b.x, y: b.y, width: b.width, height: b.height }; };
+
+test("+ New swaps the search bar for the name field, Create and a close button in the same place, without moving anything else", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  const before = { bar: await box(bar(extPage)), rows: [await box(row(extPage, "Pins")), await box(row(extPage, "Forks"))], footer: await box(extPage.locator("#btn-train-all")), popup: await box(extPage.locator(".popup-container")) };
+  expect(await extPage.locator("#search").isVisible()).toBe(true);
+
+  await extPage.locator("#btn-new").click();
+  await expect(bar(extPage), "the search bar is gone").toBeHidden();
+  await expect(form(extPage)).toBeVisible();
+  await expect(extPage.locator("#new-name")).toBeFocused();
+  const after = { bar: await box(form(extPage)), rows: [await box(row(extPage, "Pins")), await box(row(extPage, "Forks"))], footer: await box(extPage.locator("#btn-train-all")), popup: await box(extPage.locator(".popup-container")) };
+  for (const k of ["x", "y", "width", "height"]) expect(Math.abs(after.bar[k] - before.bar[k]), `the bar's ${k}`).toBeLessThanOrEqual(1);
+  expect(after.rows, "the list does not move").toEqual(before.rows);
+  expect(after.footer, "nor the footer").toEqual(before.footer);
+  expect(after.popup.height, "nor does the popup change size").toBe(before.popup.height);
+  // three controls on one line, all as tall as the search bar, none past the edge
+  const [field, create, close] = [await box(extPage.locator("#new-name")), await box(extPage.locator("#new-create")), await box(extPage.locator("#new-cancel"))];
+  expect(Math.abs(create.y - close.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(create.height - before.bar.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(close.height - before.bar.height)).toBeLessThanOrEqual(1);
+  expect(close.x + close.width, "inside the bar").toBeLessThanOrEqual(after.bar.x + after.bar.width + 0.5);
+  expect(field.width, "the name field takes the room").toBeGreaterThan(160);
+  expect(await extPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth && document.body.scrollWidth <= document.body.clientWidth), "no sideways overflow").toBe(true);
+  await expect(extPage.locator("#new-name")).toHaveAttribute("placeholder", "Category name");
+  await expect(extPage.locator("#new-cancel")).toHaveAccessibleName("Cancel");
+
+  await extPage.locator("#new-cancel").click(); // and back
+  await expect(bar(extPage)).toBeVisible();
+  expect(await box(bar(extPage))).toEqual(before.bar);
+  await expect(btnNewOf(extPage)).toBeFocused();
+});
+
+test("after creating, focus goes back to + New, and pressing Enter twice quickly makes one category with no false error", async ({ extPage, seedStorage, getStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.locator("#btn-new").click();
+  await extPage.locator("#new-name").fill("Mates");
+  await extPage.locator("#new-name").press("Enter");
+  await expect(row(extPage, "Mates")).toBeVisible();
+  await expect(extPage.locator("#btn-new"), "keyboard users continue from + New").toBeFocused();
+  await expect(extPage.locator("#toast")).not.toHaveClass(/toast-error/);
+  expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Mates", "Pins"]);
+  // the same with the field still focused: two Enters in one go
+  await extPage.locator("#btn-new").click();
+  await extPage.locator("#new-name").fill("Forks");
+  await extPage.locator("#new-name").evaluate((el) => { const f = el.form; f.requestSubmit(); f.requestSubmit(); });
+  await expect(row(extPage, "Forks")).toBeVisible();
+  await extPage.waitForTimeout(500); // the second request's answer, if one was sent, has arrived by now
+  await expect(extPage.locator("#toast")).not.toHaveClass(/toast-error/);
+  await expect(extPage.locator("#toast")).not.toContainText(/already exists/i);
+});
+
+test("Create is off for an empty or duplicate name, says why, and Enter then does nothing; a good name turns it on", async ({ extPage, getStorage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.locator("#btn-new").click();
+  const create = extPage.locator("#new-create");
+  const name = extPage.locator("#new-name");
+  await expect(create, "empty").toBeDisabled();
+  await name.press("Enter");
+  await expect(form(extPage), "Enter on an empty name does nothing").toBeVisible();
+  await name.fill("   ");
+  await expect(create, "only spaces").toBeDisabled();
+
+  await name.fill("pins"); // the same as Pins, ignoring case
+  await expect(create, "duplicate").toBeDisabled();
+  await expect(extPage.locator("#new-hint")).toBeVisible();
+  await expect(extPage.locator("#new-hint")).toContainText(/already exists/i);
+  await expect(name).toHaveAttribute("aria-invalid", "true");
+  await expect(extPage.locator("#new-error"), "read out for screen readers").toContainText(/already exists/i);
+  // the field turns red, and the hint is readable on it (WCAG 4.5:1)
+  const red = await extPage.evaluate(() => {
+    const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const hint = document.querySelector("#new-hint"); const field = document.querySelector(".new-field");
+    const [x, y] = [lum(getComputedStyle(hint).color), lum(getComputedStyle(field).backgroundColor)].sort((a, b) => b - a);
+    return { border: getComputedStyle(field).borderTopColor, ratio: (x + 0.05) / (y + 0.05) };
+  });
+  expect(red.border, "a red border").toMatch(/^rgb\(2[0-9]{2}, \d{2,3}, \d{2,3}\)$/);
+  expect(red.ratio, "the hint is readable").toBeGreaterThanOrEqual(4.5);
+  // the hint sits inside the field: Create and the close button stay inside the bar, and nothing overflows
+  const inside = await extPage.evaluate(() => { const f = document.querySelector("#new-category").getBoundingClientRect(); const c = document.querySelector("#new-cancel").getBoundingClientRect(); return { closeRight: c.right, barRight: f.right, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }; });
+  expect(inside.closeRight, "the close button is inside the bar").toBeLessThanOrEqual(inside.barRight + 0.5);
+  expect(inside.overflow, "no sideways overflow").toBeLessThanOrEqual(0);
+  await name.press("Enter");
+  await expect(form(extPage), "Enter on a duplicate does nothing").toBeVisible();
+  expect(Object.keys((await getStorage("lichessNotes")).categories)).toEqual(["Pins"]);
+
+  await name.fill("Pins 2");
+  await expect(create).toBeEnabled();
+  await expect(extPage.locator("#new-hint")).toBeHidden();
+  await expect(name).not.toHaveAttribute("aria-invalid", "true");
+  const b = await extPage.locator("#new-create").evaluate((el) => getComputedStyle(el).opacity);
+  expect(Number(b), "it looks enabled").toBeGreaterThan(0.9);
+  await create.click();
+  await expect(row(extPage, "Pins 2")).toBeVisible();
+});
+
+test("Escape or the close button cancels from anywhere in the bar, keeps what was typed in the search box, and puts focus back on + New", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
+  await extPage.locator("#search").fill("fo");
+  expect(await names(extPage)).toEqual(["Forks"]);
+  for (const how of ["input", "create", "x"]) {
+    await extPage.locator("#btn-new").click();
+    await extPage.locator("#new-name").fill("Draft");
+    if (how === "input") await extPage.locator("#new-name").press("Escape");
+    if (how === "create") { await extPage.locator("#new-create").focus(); await extPage.keyboard.press("Escape"); }
+    if (how === "x") await extPage.locator("#new-cancel").click();
+    await expect(form(extPage), how).toBeHidden();
+    await expect(bar(extPage), how).toBeVisible();
+    await expect(extPage.locator("#search"), "what was typed in the search box is still there").toHaveValue("fo");
+    expect(await names(extPage)).toEqual(["Forks"]);
+    await expect(extPage.locator("#btn-new"), how).toBeFocused();
+  }
+  await extPage.locator("#btn-new").click();
+  await expect(extPage.locator("#new-name"), "a new try starts empty").toHaveValue("");
+});
+
+test("creating clears the search so the new category is in view, restores the search bar, and a name the background refuses keeps the bar open with a message", async ({ extPage, seedStorage, getStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.locator("#search").fill("pin");
+  await extPage.locator("#btn-new").click();
+  await extPage.locator("#new-name").fill("All Categories"); // reserved: the background refuses it
+  await extPage.locator("#new-create").click();
+  await expect(extPage.locator("#toast")).toHaveText('"All Categories" is reserved and cannot be a category name.');
+  await expect(form(extPage), "stays open for another try").toBeVisible();
+  expect(Object.keys((await getStorage("lichessNotes")).categories)).toEqual(["Pins"]);
+
+  await extPage.locator("#new-name").fill("Mates");
+  await extPage.locator("#new-name").press("Enter");
+  await expect(bar(extPage)).toBeVisible();
+  await expect(extPage.locator("#search")).toHaveValue("");
+  await expect(row(extPage, "Mates")).toBeVisible();
+});
+
+test("the name field has one subtle blue focus ring, like the search box, and no second outline", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.locator("#btn-new").click();
+  const ring = await extPage.locator(".new-field").evaluate((el) => { const c = getComputedStyle(el); const i = getComputedStyle(el.querySelector("input")); return { border: c.borderTopColor, shadow: c.boxShadow, outline: i.outlineStyle, inputBorder: i.borderTopStyle }; });
+  const searchRing = await extPage.locator("#search").evaluate((el) => getComputedStyle(el.closest(".search")).borderTopColor);
+  expect(ring.outline, "no native outline on the input").toBe("none");
+  expect(ring.inputBorder, "no border of its own inside the field").toBe("none");
+  await extPage.locator("#btn-new").evaluate(() => {}); // (the field is focused: its ring shows)
+  const blue = (c) => { const m = c.match(/\d+/g).map(Number); return m[2] > m[0] + 40; };
+  expect(blue(ring.border), `a blue border (${ring.border})`).toBe(true);
+  expect(searchRing, "the search box's own border is neutral until focused").not.toBe(ring.border);
+});
 test("category colours are distinct and stay put through reload, save and rename; popup and background agree on the fallback", async ({ extPage, send, seedStorage }) => {
   await openPopup({ extPage, seedStorage }, notes({}));
   const created = ["A", "B", "C", "D", "E", "F", "G", "H"];

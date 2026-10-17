@@ -39,7 +39,7 @@
     </div>
 
     <!-- Search + new category -->
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
       <label class="search">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input id="search" type="search" placeholder="Search categories..." aria-label="Search categories" autocomplete="off" />
@@ -50,13 +50,17 @@
       </button>
     </div>
 
-    <form id="new-category" class="new-category" hidden autocomplete="off">
-      <div class="new-row">
-        <input id="new-name" type="text" maxlength="60" placeholder="Category name" aria-label="New category name" />
-        <button type="submit" class="btn-create">Create</button>
-        <button type="button" id="new-cancel" class="btn-cancel" title="Cancel" aria-label="Cancel">✕</button>
-      </div>
-      <p id="new-error" class="form-error" role="alert" hidden></p>
+    <!-- Creating a category replaces the bar above in the same place: [ Category name ] [ Create ] [ x ] -->
+    <form id="new-category" class="toolbar new-toolbar" hidden autocomplete="off">
+      <label class="new-field">
+        <input id="new-name" type="text" maxlength="60" placeholder="Category name" aria-label="New category name" aria-describedby="new-error" />
+        <span id="new-hint" class="new-hint" hidden>Already exists</span>
+      </label>
+      <button type="submit" id="new-create" class="btn-create" disabled>Create</button>
+      <button type="button" id="new-cancel" class="btn-cancel" title="Cancel" aria-label="Cancel">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+      <p id="new-error" class="sr-only" role="alert"></p>
     </form>
 
     <!-- Scrollable list: the only part of the popup that scrolls -->
