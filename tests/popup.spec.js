@@ -383,14 +383,19 @@ test("after creating, focus goes back to + New, and pressing Enter twice quickly
   await expect(extPage.locator("#btn-new"), "keyboard users continue from + New").toBeFocused();
   await expect(extPage.locator("#toast")).not.toHaveClass(/toast-error/);
   expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Mates", "Pins"]);
-  // the same with the field still focused: two Enters in one go
+  // the same with the field still focused: two submits in one go send ONE request (the second would be refused as a
+  // duplicate, and its error toast is soon covered by the first one's "Created", so count the messages instead)
   await extPage.locator("#btn-new").click();
   await extPage.locator("#new-name").fill("Forks");
+  await extPage.evaluate(() => {
+    window.__creates = 0;
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    browser.runtime.sendMessage = (message, ...rest) => { if (message && message.type === "CREATE_CATEGORY") window.__creates++; return real(message, ...rest); };
+  });
   await extPage.locator("#new-name").evaluate((el) => { const f = el.form; f.requestSubmit(); f.requestSubmit(); });
   await expect(row(extPage, "Forks")).toBeVisible();
-  await extPage.waitForTimeout(500); // the second request's answer, if one was sent, has arrived by now
-  await expect(extPage.locator("#toast")).not.toHaveClass(/toast-error/);
-  await expect(extPage.locator("#toast")).not.toContainText(/already exists/i);
+  await extPage.waitForTimeout(300);
+  expect(await extPage.evaluate(() => window.__creates), "one create request, not two").toBe(1);
 });
 
 test("Create is off for an empty or duplicate name, says why, and Enter then does nothing; a good name turns it on", async ({ extPage, getStorage, seedStorage }) => {
