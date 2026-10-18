@@ -2275,3 +2275,57 @@ test("a malformed pausedCycles value is never carried along: rename, delete, par
   expect((await send({ type: "RENAME_CATEGORY", oldName: "B", newName: "Bx" })).ok).toBe(true);
   expect(Object.keys(await getStorage("pausedCycles"))).toEqual(["A"]);
 });
+
+// ---- The settings page's toasts are the same dark cards as the popup's ----
+
+test("options page: toasts are dark cards with an icon and a Dismiss button, at the bottom centre", async ({ context, extensionUrl }) => {
+  const page = await context.newPage();
+  await page.goto(extensionUrl("options.html"));
+  await page.click("#btn-new-category");
+  await page.fill("#modal-input", "Mates");
+  await page.click("#modal-confirm");
+  const toast = page.locator("#toast");
+  await expect(toast).toHaveText('Created "Mates"');
+  await expect(toast).toHaveAttribute("role", "status");
+  await expect(toast).toHaveAttribute("aria-live", "polite");
+  const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const look = await toast.evaluate((el) => {
+    const c = getComputedStyle(el), i = el.querySelector(".toast-icon svg"), x = el.querySelector(".toast-close svg"), r = el.getBoundingClientRect();
+    const d = (n) => { const b = n.getBoundingClientRect(); return [b.width, b.height, n.namespaceURI]; };
+    return { bg: c.backgroundColor, border: c.borderTopColor, color: c.color, icon: getComputedStyle(i).color, drawn: [d(i), d(x)], iconLeft: i.getBoundingClientRect().left < el.querySelector(".toast-msg").getBoundingClientRect().left, centre: r.left + r.width / 2, view: innerWidth, bottomGap: innerHeight - r.bottom, radius: parseFloat(c.borderTopLeftRadius), shadow: c.boxShadow };
+  });
+  expect(rgb(look.bg)).toEqual(hex("#10291F"));
+  expect(rgb(look.border)).toEqual(hex("#256B4A"));
+  expect(rgb(look.color)).toEqual(hex("#E6F7ED"));
+  expect(rgb(look.icon)).toEqual(hex("#34D399"));
+  expect(look.iconLeft).toBe(true);
+  for (const [w, h, ns] of look.drawn) { expect(w).toBeGreaterThanOrEqual(10); expect(h).toBeGreaterThanOrEqual(10); expect(ns).toBe("http://www.w3.org/2000/svg"); }
+  expect(Math.abs(look.centre - look.view / 2)).toBeLessThanOrEqual(2);
+  expect(look.bottomGap).toBeGreaterThan(0);
+  expect(look.bottomGap).toBeLessThan(60);
+  expect(look.radius).toBeGreaterThanOrEqual(8);
+  expect(look.shadow).not.toBe("none");
+
+  await toast.locator(".toast-close").click();
+  await expect(toast).toBeHidden();
+
+  // errors and warnings are dark cards of their own colour, readable, and a new toast replaces the old one
+  for (const kind of ["error", "warn"]) {
+    await page.evaluate((k) => showToast("Something to read", k), kind);
+    await expect(page.locator(".toast")).toHaveCount(1);
+    const r = await toast.evaluate((el) => {
+      const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const c = getComputedStyle(el); const [x, y] = [lum(c.color), lum(c.backgroundColor)].sort((a, b) => b - a);
+      return { ratio: (x + 0.05) / (y + 0.05), bg: c.backgroundColor, icon: getComputedStyle(el.querySelector(".toast-icon svg")).color };
+    });
+    expect(r.ratio, kind).toBeGreaterThanOrEqual(4.5);
+    expect(Math.max(...rgb(r.bg)), `${kind} is dark`).toBeLessThan(80);
+    expect(r.icon).not.toBe("rgb(52, 211, 153)");
+  }
+  // a long message wraps inside the page instead of running off it
+  await page.evaluate(() => showToast("That file can't be imported because it is not a Lichess Woodpecker export and nothing in it could be used at all.", "error"));
+  const fit = await toast.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, innerWidth - r.right]; });
+  expect(fit[0]).toBeGreaterThanOrEqual(0);
+  expect(fit[1]).toBeGreaterThanOrEqual(0);
+});

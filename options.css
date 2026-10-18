@@ -721,24 +721,77 @@ body {
   font-size: 13px;
 }
 
-/* ---- Toast ---- */
+/* ---- Toast: the same dark card as the popup's; a new one replaces the last ---- */
 .toast {
+  --toast-bg: #10291f;
+  --toast-border: #256b4a;
+  --toast-icon: #34d399;
   position: fixed;
   bottom: 20px;
   left: 50%;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 9px 9px 9px 14px;
+  border: 1px solid var(--toast-border);
+  border-radius: 10px;
+  background: var(--toast-bg);
+  color: #e6f7ed;
   transform: translateX(-50%);
-  padding: 10px 20px;
-  border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
-  z-index: 200;
-  transition: opacity 0.3s;
-  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.18s ease-out;
 }
 
-.toast.toast-success { background: var(--success); color: #07210f; }
-.toast.toast-error { background: var(--danger-solid); color: #fff; }
-.toast.toast-warn { background: var(--warning); color: #1a1205; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
+.toast.toast-warn { --toast-bg: #2b2110; --toast-border: #7a5a1a; --toast-icon: #fbbf24; }
+.toast.toast-error { --toast-bg: #2c1416; --toast-border: #7f2a2f; --toast-icon: #f87171; }
+
+.toast-icon {
+  display: grid;
+  flex: none;
+  color: var(--toast-icon);
+}
+
+.toast-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(230, 247, 237, 0.6);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6f7ed;
+}
+
+.toast-close:focus-visible {
+  outline: 2px solid var(--blue, #60a5fa);
+  outline-offset: 1px;
+}
 
 /* ---- Export ---- */
 .version-line {
