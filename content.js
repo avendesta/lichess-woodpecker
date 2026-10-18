@@ -829,45 +829,10 @@
     window.location.href = session.queue[session.currentIndex];
   }
 
-  // The question is part of the overlay rather than window.confirm(): a native dialog can be suppressed (a background
-  // tab, "prevent this page from creating more dialogs", automated browsers) and is then answered "no" without the user
-  // ever seeing it, so Restart would silently do nothing. It sits over the bottom of the panel (the timer and button
-  // rows), so nothing else moves, and Cancel is the default.
-  function askRestart() {
-    return new Promise((resolve) => {
-      const panel = overlay.querySelector(".wpk-panel");
-      if (!panel || panel.querySelector(".wpk-confirm")) return resolve(false);
-      const box = document.createElement("div");
-      box.className = "wpk-confirm";
-      box.setAttribute("role", "alertdialog");
-      box.setAttribute("aria-modal", "true");
-      box.setAttribute("aria-label", "Restart this cycle?");
-      box.innerHTML = `
-        <p class="wpk-confirm-text">Restart this cycle from puzzle 1? Its progress, counts and timer will be reset.</p>
-        <div class="wpk-confirm-actions">
-          <button class="wpk-confirm-cancel">Cancel</button>
-          <button class="wpk-confirm-yes">Restart</button>
-        </div>
-      `;
-      const answer = (yes) => {
-        box.remove();
-        if (!yes) overlay.querySelector(".wpk-btn-restart")?.focus();
-        resolve(yes);
-      };
-      box.querySelector(".wpk-confirm-cancel").addEventListener("click", () => answer(false));
-      box.querySelector(".wpk-confirm-yes").addEventListener("click", () => answer(true));
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); answer(false); }
-      });
-      panel.appendChild(box);
-      box.querySelector(".wpk-confirm-cancel").focus();
-    });
-  }
-
-  // Restart throws away this cycle's progress (counts, position and clock), so it asks first.
+  // Restart starts the cycle over from puzzle 1 (counts, position and clock), at once: it is no more than pressing
+  // Repeat, so it asks nothing (and never through a native dialog, which can be suppressed and answered "no" unseen).
   async function restartCycle() {
     if (advancing || detached) return;
-    if (!(await askRestart())) return;
     advancing = true; // a double click must not restart twice before the page navigates away
     const wasPaused = !!session.pausedAt;
     session.timerStartedAt = Date.now();

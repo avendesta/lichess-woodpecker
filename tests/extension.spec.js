@@ -1363,9 +1363,6 @@ const CONTRAST_PAIRS = {
     [".wpk-btn-next", ".wpk-btn-next", 4.5], [".wpk-btn-exit", ".wpk-btn-exit", 4.5],
   ],
   pill: [[".wpk-collapsed-progress", ".wpk-collapsed", 4.5], [".wpk-collapsed-timer", ".wpk-collapsed", 4.5]],
-  question: [
-    [".wpk-confirm-text", ".wpk-confirm", 4.5], [".wpk-confirm-cancel", ".wpk-confirm", 4.5], [".wpk-confirm-yes", ".wpk-confirm-yes", 4.5],
-  ],
 };
 
 for (const [theme, id] of [["dark", "darkpage"], ["light", "lightpage"]]) {
@@ -1374,14 +1371,10 @@ for (const [theme, id] of [["dark", "darkpage"], ["light", "lightpage"]]) {
     const page = await context.newPage();
     const overlay = page.locator("#lpn-woodpecker-overlay");
     const failures = [];
-    for (const [view, extra] of [["training", {}], ["results", { cycleFinishedAt: Date.now() - 1000, completedInCycle: 1, correctInCycle: 1 }], ["pill", { isMinimized: true }], ["paused", {}], ["question", {}]]) {
+    for (const [view, extra] of [["training", {}], ["results", { cycleFinishedAt: Date.now() - 1000, completedInCycle: 1, correctInCycle: 1 }], ["pill", { isMinimized: true }], ["paused", {}]]) {
       await seedStorage(trainingSeed([id], extra));
       await gotoTraining(page, `https://lichess.org/training/${id}`);
       await expect(overlay.locator(view === "pill" ? ".wpk-collapsed" : ".wpk-panel")).toBeVisible();
-      if (view === "question") {
-        await overlay.locator(".wpk-btn-restart").click();
-        await expect(overlay.locator(".wpk-confirm")).toBeVisible();
-      }
       if (view === "paused") {
         await overlay.locator(".wpk-btn-pause").click();
         await expect(overlay.locator(".wpk-paused")).toBeVisible();
@@ -1501,39 +1494,18 @@ test("pausing a Train all cycle keeps it: it is parked as All Categories, and th
   expect(await getStorage("pausedCycles"), "nothing left parked").toBeFalsy();
 });
 
-test("Restart asks first, in the overlay itself, and only then starts the cycle over", async ({ context, seedStorage, getStorage }) => {
+test("Restart starts the cycle over at once, with no question asked, and no native dialog", async ({ context, seedStorage, getStorage }) => {
   await serveFinishedPuzzles(context);
   await seedStorage(trainingSeed(["lightpage", "darkpage"], { currentIndex: 1, completedInCycle: 1, correctInCycle: 1, timerStartedAt: Date.now() - 120_000 }));
   const page = await context.newPage();
-  let nativeDialogs = 0; // a native confirm() can be suppressed (background tab, "prevent more dialogs", automation) and then reads as "no"
+  let nativeDialogs = 0; // a native confirm() can be suppressed and then reads as "no": there must be none
   page.on("dialog", (d) => { nativeDialogs++; d.dismiss(); });
   await gotoTraining(page, "https://lichess.org/training/darkpage");
   const overlay = page.locator("#lpn-woodpecker-overlay");
-  const restart = overlay.locator(".wpk-btn-restart"), ask = overlay.locator(".wpk-confirm");
-  const before = await getStorage("trainingSession");
 
-  // Cancel: nothing changes, and focus goes back to Restart
-  await restart.click();
-  await expect(ask).toBeVisible();
-  await expect(ask).toHaveAccessibleName(/restart/i);
-  await expect(ask).toContainText("Restart this cycle from puzzle 1");
-  await expect(ask.locator(".wpk-confirm-cancel")).toBeFocused(); // the safe answer is the default
-  await ask.locator(".wpk-confirm-cancel").click();
-  await expect(ask).toHaveCount(0);
-  await expect(restart).toBeFocused();
-  // Escape cancels as well
-  await restart.click();
-  await expect(ask).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(ask).toHaveCount(0);
-  await page.waitForTimeout(600); // long enough for a wrongly-unconditional restart to have saved and navigated
-  expect(await getStorage("trainingSession")).toEqual(before);
-  await expect(page).toHaveURL(/\/training\/darkpage/);
-
-  // Confirm: the cycle starts over
-  await restart.click();
-  await ask.locator(".wpk-confirm-yes").click();
+  await overlay.locator(".wpk-btn-restart").click();
   await expect(page).toHaveURL(/\/training\/lightpage/);
+  expect(await overlay.locator(".wpk-confirm").count(), "no question was put in the overlay").toBe(0);
   const s = await getStorage("trainingSession");
   expect(s).toMatchObject({ currentIndex: 0, completedInCycle: 0, correctInCycle: 0, incorrectInCycle: 0, skippedInCycle: 0 });
   expect(Date.now() - s.timerStartedAt).toBeLessThan(10_000);
@@ -1729,26 +1701,17 @@ test("Skip does nothing while paused, by mouse or keyboard", async ({ context, s
   await expect(overlay.locator(".wpk-tooltip")).toHaveText(/paused/i); // and it says why
 });
 
-test("Restart while paused asks first, then starts the cycle over and running", async ({ context, seedStorage, getStorage }) => {
+test("Restart while paused starts the cycle over and running, at once", async ({ context, seedStorage, getStorage }) => {
   await serveFinishedPuzzles(context);
   await seedStorage(trainingSeed(["lightpage", "darkpage"], { currentIndex: 1, completedInCycle: 1, correctInCycle: 1, timerStartedAt: Date.now() - 120_000 }));
   const page = await context.newPage();
   await gotoTraining(page, "https://lichess.org/training/darkpage");
   const overlay = page.locator("#lpn-woodpecker-overlay");
-  const ask = overlay.locator(".wpk-confirm");
   await overlay.locator(".wpk-btn-pause").click();
   await expect(overlay.locator(".wpk-btn-play")).toBeVisible();
-  const saved = await parked(getStorage);
+  expect(await parked(getStorage)).not.toEqual({});
 
   await overlay.locator(".wpk-btn-restart").click();
-  await ask.locator(".wpk-confirm-cancel").click();
-  await page.waitForTimeout(600);
-  expect(await parked(getStorage)).toEqual(saved); // declined: still parked, still paused
-  await expect(overlay.locator(".wpk-btn-play")).toBeVisible();
-  await expect(page).toHaveURL(/\/training\/darkpage/);
-
-  await overlay.locator(".wpk-btn-restart").click();
-  await ask.locator(".wpk-confirm-yes").click();
   await expect(page).toHaveURL(/\/training\/lightpage/);
   await expect(overlay.locator(".wpk-btn-pause")).toBeVisible(); // running again, not paused
   const s = await getStorage("trainingSession");

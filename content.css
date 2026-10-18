@@ -384,68 +384,6 @@
   background: var(--wpk-skip-bg-hover);
 }
 
-/* ---- The Restart question: laid over the bottom of the panel, so nothing else moves ---- */
-#lpn-woodpecker-overlay .wpk-confirm {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  background: var(--wpk-bg);
-  border-top: 1px solid var(--wpk-border);
-  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.18);
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-text {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--wpk-text);
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-cancel,
-#lpn-woodpecker-overlay .wpk-confirm-yes {
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 6px;
-  font-family: var(--wpk-font);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-cancel {
-  background: none;
-  color: var(--wpk-text);
-  border: 1px solid var(--wpk-border);
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-cancel:hover {
-  background: var(--wpk-bg-hover);
-  border-color: var(--wpk-text-muted);
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-yes {
-  background: var(--wpk-danger-solid);
-  color: #fff;
-  border: 1px solid var(--wpk-danger-solid);
-}
-
-#lpn-woodpecker-overlay .wpk-confirm-yes:hover {
-  background: var(--wpk-danger-solid-hover);
-}
-
 /* ---- Paused: the same panel in the same places; only the signs of a pause change ---- */
 #lpn-woodpecker-overlay .wpk-title-paused {
   color: var(--wpk-warning);
