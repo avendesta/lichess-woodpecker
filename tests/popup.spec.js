@@ -1121,3 +1121,192 @@ test("both pages load shared.js and neither redefines what it provides", async (
     for (const n of ["buildSession", "fisherYatesShuffle", "showToast"]) expect(src, `${f} must not define ${n}`).not.toMatch(new RegExp(`function ${n}\\b`));
   }
 });
+
+// ---- Rename a category in the popup: double-click it, type, Enter ----
+
+const nameInput = (page) => page.locator(".category-row .rename-input");
+const spyRenames = (page) => page.evaluate(() => {
+  window.__renames = [];
+  const real = browser.runtime.sendMessage.bind(browser.runtime);
+  browser.runtime.sendMessage = (message, ...rest) => { if (message && message.type === "RENAME_CATEGORY") window.__renames.push([message.oldName, message.newName]); return real(message, ...rest); };
+});
+const renamesSent = (page) => page.evaluate(() => window.__renames);
+
+test("double-clicking a category turns its name into a field in place: nothing moves, the name is selected, and the rest of the row stays", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12", "def34"], Forks: [] }), "7BpCV");
+  const rows = async () => [await box(row(extPage, "Pins")), await box(row(extPage, "Forks")), await box(extPage.locator("#btn-train-all")), await box(extPage.locator(".popup-container"))];
+  const before = await rows();
+
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await expect(nameInput(extPage)).toHaveCount(1);
+  await expect(nameInput(extPage)).toBeFocused();
+  await expect(nameInput(extPage)).toHaveValue("Pins");
+  expect(await nameInput(extPage).evaluate((el) => [el.selectionStart, el.selectionEnd]), "the name is selected, ready to be replaced").toEqual([0, 4]);
+  await expect(nameInput(extPage)).toHaveAccessibleName(/Rename category Pins/i);
+  expect(await rows(), "nothing moves, the row keeps its height").toEqual(before);
+  // the count and the buttons are still there beside it
+  await expect(row(extPage, "Pins").locator(".cat-count")).toBeVisible();
+  await expect(row(extPage, "Pins").locator(".btn-save")).toBeVisible();
+  await expect(row(extPage, "Pins").locator(".btn-train")).toBeVisible();
+  expect(await extPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no sideways overflow").toBe(true);
+});
+
+test("double-clicking the empty part of the row works too, but double-clicking Save or Train does not start a rename", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"] }), "7BpCV");
+  await row(extPage, "Pins").locator(".cat-count").dblclick();
+  await expect(nameInput(extPage)).toHaveCount(1);
+  await nameInput(extPage).press("Escape");
+  await expect(nameInput(extPage)).toHaveCount(0);
+  await row(extPage, "Pins").locator(".btn-train").dblclick({ trial: true }); // (a trial: the real double-click would start two trainings)
+  await row(extPage, "Pins").locator(".btn-save").dblclick();
+  await expect(nameInput(extPage), "Save is for saving").toHaveCount(0);
+});
+
+test("Enter renames: the new name shows, the puzzles, the colour and a paused cycle stay with it, and the old name is gone", async ({ extPage, seedStorage, getStorage }) => {
+  const paused = { ownerTabId: null, category: "Pins", queue: ["https://lichess.org/training/abc12", "https://lichess.org/training/def34"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, cycleCount: 1, isMinimized: false, timerStartedAt: 1_000, pausedAt: 2_000 };
+  await openPopup({ extPage, seedStorage }, { ...notes({ Pins: ["abc12", "def34"], Forks: [] }, { Pins: { color: 3 }, Forks: { color: 5 } }), pausedCycles: { Pins: paused } }, "7BpCV");
+  const dot = (name) => row(extPage, name).locator(".cat-dot").evaluate((el) => getComputedStyle(el).backgroundColor);
+  const colour = await dot("Pins");
+  await spyRenames(extPage);
+
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("Pin tactics");
+  await nameInput(extPage).press("Enter");
+  await expect(row(extPage, "Pin tactics")).toBeVisible();
+  await expect(row(extPage, "Pins")).toHaveCount(0);
+  await expect(nameInput(extPage)).toHaveCount(0);
+  await expect(row(extPage, "Pin tactics").locator(".cat-count")).toHaveText("2");
+  expect(await dot("Pin tactics"), "the colour travels with the category").toBe(colour);
+  await expect(row(extPage, "Pin tactics").locator(".cat-paused"), "the paused cycle too").toHaveText("⏸ 1/2");
+  const stored = await getStorage("lichessNotes");
+  expect(Object.keys(stored.categories).sort()).toEqual(["Forks", "Pin tactics"]);
+  expect(stored.categories["Pin tactics"]).toEqual(["abc12", "def34"]);
+  expect(Object.keys(await getStorage("pausedCycles"))).toEqual(["Pin tactics"]);
+  expect(await renamesSent(extPage)).toEqual([["Pins", "Pin tactics"]]);
+});
+
+test("Escape, an unchanged name and an emptied field leave the category alone, and send nothing", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
+  await spyRenames(extPage);
+  // Escape throws the typing away
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("Something else");
+  await nameInput(extPage).press("Escape");
+  await expect(nameInput(extPage)).toHaveCount(0);
+  await expect(row(extPage, "Pins")).toBeVisible();
+  // Enter on the same name just closes it
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).press("Enter");
+  await expect(nameInput(extPage)).toHaveCount(0);
+  // an empty or blank name is not a name: it is flagged, Enter does nothing, and the field stays for another try
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("   ");
+  await expect(nameInput(extPage)).toHaveAttribute("aria-invalid", "true");
+  await nameInput(extPage).press("Enter");
+  await expect(nameInput(extPage)).toHaveCount(1);
+  expect(await renamesSent(extPage), "no request for any of that").toEqual([]);
+});
+
+test("a name another category already has (any case) is flagged and not sent; changing only the case of its own name is allowed", async ({ extPage, seedStorage, getStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
+  await spyRenames(extPage);
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("forks");
+  await expect(nameInput(extPage)).toHaveAttribute("aria-invalid", "true");
+  await expect(nameInput(extPage)).toHaveAttribute("title", /already exists/i);
+  const red = await nameInput(extPage).evaluate((el) => getComputedStyle(el).borderTopColor);
+  expect(red, "a red border").toMatch(/^rgb\(2[0-9]{2}, \d{2,3}, \d{2,3}\)$/);
+  await nameInput(extPage).press("Enter");
+  await expect(nameInput(extPage)).toHaveCount(1);
+  expect(await renamesSent(extPage)).toEqual([]);
+
+  await nameInput(extPage).fill("PINS"); // its own name, new case
+  await expect(nameInput(extPage)).not.toHaveAttribute("aria-invalid", "true");
+  await nameInput(extPage).press("Enter");
+  await expect(row(extPage, "PINS")).toBeVisible();
+  expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Forks", "PINS"]);
+});
+
+test("a name the background refuses shows its message and keeps the field open for another try", async ({ extPage, seedStorage, getStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("All Categories");
+  await nameInput(extPage).press("Enter");
+  await expect(extPage.locator("#toast")).toHaveText('"All Categories" is reserved and cannot be a category name.');
+  await expect(nameInput(extPage)).toHaveCount(1);
+  await expect(nameInput(extPage)).toBeFocused();
+  expect(Object.keys((await getStorage("lichessNotes")).categories)).toEqual(["Pins"]);
+  await nameInput(extPage).fill("Mates");
+  await nameInput(extPage).press("Enter");
+  await expect(row(extPage, "Mates")).toBeVisible();
+});
+
+test("clicking away commits a good new name and quietly cancels an unchanged or invalid one", async ({ extPage, seedStorage, getStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("Mates");
+  await extPage.locator(".summary").click(); // somewhere else
+  await expect(row(extPage, "Mates")).toBeVisible();
+  expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Forks", "Mates"]);
+
+  await row(extPage, "Forks").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("mates"); // taken
+  await extPage.locator(".summary").click();
+  await expect(nameInput(extPage)).toHaveCount(0);
+  await expect(row(extPage, "Forks")).toBeVisible();
+  expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Forks", "Mates"]);
+});
+
+test("F2 renames the category whose row has focus, so a keyboard user can do it too", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  await row(extPage, "Forks").locator(".btn-train").focus();
+  await extPage.keyboard.press("F2");
+  await expect(nameInput(extPage)).toHaveCount(1);
+  await expect(nameInput(extPage)).toHaveValue("Forks");
+  await expect(nameInput(extPage)).toBeFocused();
+  await nameInput(extPage).press("Escape");
+  await expect(row(extPage, "Forks").locator(".btn-train"), "focus goes back to where it was").toBeFocused();
+});
+
+test("only one category is renamed at a time, and a double-click in the search box or on the totals does nothing", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await row(extPage, "Forks").locator(".cat-name").dblclick(); // the first one closes (its field loses focus), the second opens
+  await expect(nameInput(extPage)).toHaveCount(1);
+  await expect(nameInput(extPage)).toHaveValue("Forks");
+  await nameInput(extPage).press("Escape");
+  await extPage.locator("#search").dblclick();
+  await extPage.locator(".summary").dblclick();
+  await expect(nameInput(extPage)).toHaveCount(0);
+});
+
+test("the rename field is as readable as the name it replaces and has one soft blue ring", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  const look = await nameInput(extPage).evaluate((el) => {
+    const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const c = getComputedStyle(el);
+    const [x, y] = [lum(c.color), lum(c.backgroundColor)].sort((a, b) => b - a);
+    return { ratio: (x + 0.05) / (y + 0.05), outline: c.outlineStyle, border: c.borderTopColor, height: el.getBoundingClientRect().height };
+  });
+  expect(look.ratio).toBeGreaterThanOrEqual(4.5);
+  expect(look.outline, "no native outline").toBe("none");
+  expect(look.height, "fits inside the 41px row").toBeLessThanOrEqual(34);
+  const m = look.border.match(/\d+/g).map(Number);
+  expect(m[2], "a blue border").toBeGreaterThan(m[0] + 40);
+});
+
+test("if the background does not answer a rename, the field says so and still works", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.evaluate(() => {
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    let fail = true;
+    browser.runtime.sendMessage = (m, ...r) => (fail && m && m.type === "RENAME_CATEGORY" ? ((fail = false), Promise.reject(new Error("gone"))) : real(m, ...r));
+  });
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("Mates");
+  await nameInput(extPage).press("Enter");
+  await expect(extPage.locator("#toast")).toHaveText("Could not rename the category.");
+  await nameInput(extPage).press("Enter"); // the second try goes through
+  await expect(row(extPage, "Mates")).toBeVisible();
+});

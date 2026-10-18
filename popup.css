@@ -759,3 +759,30 @@ input:focus-visible {
 /* the cycle being trained now: a gold bolt */
 .btn-train.is-running svg,
 .btn-train-all.is-running svg { color: #fbbf24; fill: rgba(251, 191, 36, 0.35); }
+
+/* The rename field replaces the name inside its row: the row keeps its height and the buttons stay where they are */
+.rename-input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 28px;
+  margin-left: -8px;
+  padding: 0 8px;
+  border: 1px solid var(--blue);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
+}
+
+.rename-input:focus-visible {
+  outline: none; /* the border and soft ring are the focus mark (the global input rule would add a second outline) */
+}
+
+.rename-input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: none;
+}

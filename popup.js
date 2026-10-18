@@ -496,6 +496,18 @@ function bindEvents() {
     else if (btn.classList.contains("btn-train")) trainCategory(row.dataset.cat, btn);
   });
 
+  categoryList.addEventListener("dblclick", (e) => {
+    const row = e.target.closest(".category-row");
+    if (row && !e.target.closest("button, input")) startRename(row);
+  });
+  categoryList.addEventListener("keydown", (e) => {
+    const row = e.key === "F2" && !e.target.closest("input") && e.target.closest(".category-row");
+    if (row) {
+      e.preventDefault();
+      startRename(row, e.target);
+    }
+  });
+
   // Train grows (and Save shrinks) while Train is hovered or keyboard-focused. A class on the group, not :has(),
   // because the extension supports Firefox 109 and :has() only arrived in 121.
   const trainOf = (e) => e.target.closest && e.target.closest(".btn-train");
@@ -515,6 +527,90 @@ function bindEvents() {
     const t = trainOf(e);
     if (t && !t.matches(":hover")) setHot(t, false);
   });
+}
+
+/* ============================================================
+ * Rename a category in place: double-click it (or F2 on a focused row)
+ * ============================================================ */
+// The name becomes a field inside the same row (so nothing moves). Enter or leaving the field commits a valid new name;
+// Escape, an unchanged name, or leaving it with a bad one cancels. The name rules are the background's (it refuses a
+// reserved or invalid one and its message is shown); the popup only flags the two cases it can see: empty and taken.
+function renameProblem(oldName, value) {
+  const v = value.trim();
+  if (!v) return "Name cannot be empty.";
+  const clash = categoryNames().find((k) => k !== oldName && k.toLowerCase() === v.toLowerCase());
+  return clash ? `“${clash}” already exists.` : "";
+}
+
+function startRename(row, opener = null) {
+  if (row.querySelector(".rename-input")) return;
+  const oldName = row.dataset.cat;
+  const label = row.querySelector(".cat-name");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "rename-input";
+  input.maxLength = 60;
+  input.value = oldName;
+  input.setAttribute("aria-label", `Rename category ${oldName}`);
+  label.hidden = true;
+  label.before(input);
+  let done = false; // set once it has been committed or cancelled, so the blur that follows does nothing
+
+  const close = () => {
+    done = true;
+    input.remove();
+    label.hidden = false;
+  };
+  const flag = () => {
+    const problem = renameProblem(oldName, input.value);
+    input.setAttribute("aria-invalid", String(!!problem));
+    if (problem) input.title = problem;
+    else input.removeAttribute("title");
+    return problem;
+  };
+  // fromEnter: a bad name keeps the field open for another try; leaving the field with one just cancels
+  const commit = async (fromEnter) => {
+    if (done) return;
+    const name = input.value.trim();
+    if (name === oldName) return close();
+    if (flag()) return fromEnter ? undefined : close();
+    done = true; // (a second Enter or the blur while the request is in flight)
+    let resp;
+    try {
+      resp = await browser.runtime.sendMessage({ type: "RENAME_CATEGORY", oldName, newName: name });
+    } catch {
+      resp = { ok: false }; // the background did not answer: the same as a refusal
+    }
+    if (!resp.ok) {
+      showToast(resp.error || "Could not rename the category.", "error");
+      if (fromEnter && document.activeElement === input) { // (not if the user has already gone elsewhere)
+        done = false;
+      } else close();
+      return;
+    }
+    await loadData();
+    renderAll();
+    const renamed = categoryList.querySelector(`.category-row[data-cat="${CSS.escape(name)}"]`);
+    if (renamed) {
+      renamed.scrollIntoView({ block: "nearest" });
+      if (fromEnter) renamed.querySelector(".btn-save").focus();
+    }
+  };
+
+  input.addEventListener("input", flag);
+  input.addEventListener("blur", () => commit(false));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commit(true);
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      close();
+      if (opener && opener.isConnected) opener.focus();
+    }
+  });
+  input.focus();
+  input.select();
 }
 
 /* ============================================================
