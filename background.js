@@ -109,7 +109,9 @@ async function updateParked(change) {
   await writeParked(parked);
 }
 
-const MAX_NAME_LENGTH = 60;
+const MAX_NAME_LENGTH = 45; // the longest NEW category name (create, rename, import)
+// Names saved before the limit was 45 can be up to 60 long: they must still be able to park a cycle and record stats.
+const MAX_STORED_NAME_LENGTH = 60;
 
 /**
  * The one rule for a category's name, used by create, rename and import. Returns {ok, name} (trimmed) or {ok: false, error}.
@@ -381,7 +383,7 @@ const TRAINING_URL = /^https:\/\/lichess\.org\/training\/[A-Za-z0-9]{1,20}$/; //
 function checkCycle(c, { paused }) {
   const bad = (why) => ({ ok: false, error: `Invalid training cycle (${why}).` });
   if (!c || typeof c !== "object" || Array.isArray(c)) return bad("not an object");
-  if (typeof c.category !== "string" || !c.category || c.category.length > MAX_NAME_LENGTH || c.category === "__proto__") return bad("category");
+  if (typeof c.category !== "string" || !c.category || c.category.length > MAX_STORED_NAME_LENGTH || c.category === "__proto__") return bad("category");
   if (!Array.isArray(c.queue) || c.queue.length === 0 || c.queue.length > 200000 || !c.queue.every((u) => typeof u === "string" && TRAINING_URL.test(u))) return bad("queue");
   if (!Number.isInteger(c.currentIndex) || c.currentIndex < 0 || c.currentIndex > c.queue.length) return bad("position");
   for (const k of ["totalPuzzles", "cycleCount", "timerStartedAt"]) if (!Number.isFinite(c[k]) || c[k] < 0) return bad(k);
@@ -444,7 +446,7 @@ const MAX_STATS = 50; // the newest ones; older ones are dropped so storage does
 async function recordStats(raw) {
   const isCount = (v) => Number.isFinite(v) && v >= 0;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, error: "Invalid statistics record." };
-  if (typeof raw.category !== "string" || !raw.category || raw.category.length > MAX_NAME_LENGTH) return { ok: false, error: "Invalid statistics record." };
+  if (typeof raw.category !== "string" || !raw.category || raw.category.length > MAX_STORED_NAME_LENGTH) return { ok: false, error: "Invalid statistics record." };
   for (const k of ["timeTaken", "totalPuzzles", "correct", "incorrect", "skipped", "completedAt"]) {
     if (!isCount(raw[k])) return { ok: false, error: "Invalid statistics record." };
   }

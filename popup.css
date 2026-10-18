@@ -70,6 +70,7 @@ input:focus-visible {
 }
 
 .popup-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -713,26 +714,72 @@ input:focus-visible {
   cursor: not-allowed;
 }
 
-/* ---- Toast ---- */
+/* ---- Toast: a dark card above Train all categories (it hides nothing you press); a new one replaces the last ---- */
 .toast {
-  position: fixed;
+  --toast-bg: #10291f;
+  --toast-border: #256b4a;
+  --toast-icon: #34d399;
+  position: absolute; /* inside .popup-container, so it follows the Train all button wherever the popup is drawn */
   left: 50%;
-  bottom: 62px;
+  bottom: 58px; /* just above the Train all button (37px tall plus its padding) */
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   max-width: 340px;
-  padding: 8px 14px;
-  border-radius: 7px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--toast-border);
+  border-radius: 10px;
+  background: var(--toast-bg);
+  color: #e6f7ed;
   transform: translateX(-50%);
   font-size: 13px;
   font-weight: 500;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: toast-in 0.18s ease-out;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .toast.hidden {
   display: none;
 }
 
-.toast-success { background: var(--success); color: #07210f; }
+.toast-warn { --toast-bg: #2b2110; --toast-border: #7a5a1a; --toast-icon: #fbbf24; }
+.toast-error { --toast-bg: #2c1416; --toast-border: #7f2a2f; --toast-icon: #f87171; }
+
+.toast-icon {
+  display: grid;
+  flex: none;
+  color: var(--toast-icon);
+}
+
+.toast-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(230, 247, 237, 0.6);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6f7ed;
+}
 
 /* text for screen readers only: what the row changing already shows everyone else */
 .sr-only {
@@ -746,8 +793,6 @@ input:focus-visible {
   white-space: nowrap;
   border: 0;
 }
-.toast-warn { background: var(--warning); color: #2a1a00; }
-.toast-error { background: var(--danger); color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   * {

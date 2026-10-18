@@ -53,7 +53,7 @@
     <!-- Creating a category replaces the bar above in the same place: [ Category name ] [ Create ] [ x ] -->
     <form id="new-category" class="toolbar new-toolbar" hidden autocomplete="off">
       <label class="new-field">
-        <input id="new-name" type="text" maxlength="60" placeholder="Category name" aria-label="New category name" aria-describedby="new-error" />
+        <input id="new-name" type="text" maxlength="45" placeholder="Category name" aria-label="New category name" aria-describedby="new-error" />
         <span id="new-hint" class="new-hint" hidden>Already exists</span>
       </label>
       <button type="submit" id="new-create" class="btn-create" disabled>Create</button>
@@ -73,7 +73,7 @@
       </button>
     </footer>
 
-    <div id="toast" class="toast hidden" role="status"></div>
+    <div id="toast" class="toast hidden" data-rich="1" role="status" aria-live="polite"></div>
     <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
   </div>
 

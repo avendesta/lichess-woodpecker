@@ -1310,3 +1310,76 @@ test("if the background does not answer a rename, the field says so and still wo
   await nameInput(extPage).press("Enter"); // the second try goes through
   await expect(row(extPage, "Mates")).toBeVisible();
 });
+
+// ---- The toast: dark green card, check icon, a close button, above Train all categories ----
+
+const rgb = (c) => c.match(/[\d.]+/g).slice(0, 3).map(Number);
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+test("the toast hovers above Train all categories, dark green with a green border, check icon and soft white text", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  await extPage.evaluate(() => showToast("Created “Pin”", "success"));
+  const toast = extPage.locator("#toast");
+  await expect(toast).toBeVisible();
+  await expect(toast).toHaveText("Created “Pin”"); // the icon and the close button add no text
+  await expect(toast).toHaveAttribute("role", "status");
+  await expect(toast).toHaveAttribute("aria-live", "polite");
+  const look = await toast.evaluate((el) => { const c = getComputedStyle(el); const i = el.querySelector(".toast-icon svg"); return { bg: c.backgroundColor, border: c.borderTopColor, borderW: c.borderTopWidth, color: c.color, radius: parseFloat(c.borderTopLeftRadius), shadow: c.boxShadow, icon: i && getComputedStyle(i).color, iconLeft: i && i.getBoundingClientRect().left < el.querySelector(".toast-msg").getBoundingClientRect().left }; });
+  expect(rgb(look.bg)).toEqual(hex("#10291F"));
+  expect(rgb(look.border)).toEqual(hex("#256B4A"));
+  expect(look.borderW).toBe("1px");
+  expect(rgb(look.color)).toEqual(hex("#E6F7ED"));
+  expect(rgb(look.icon), "a green icon").toEqual(hex("#34D399"));
+  expect(look.iconLeft, "on the left").toBe(true);
+  const drawn = await toast.evaluate((el) => [".toast-icon svg", ".toast-close svg"].map((q) => { const r = el.querySelector(q).getBoundingClientRect(); return [r.width, r.height, el.querySelector(q).namespaceURI]; }));
+  for (const [w, h, ns] of drawn) { expect(w, "an icon that is really drawn").toBeGreaterThanOrEqual(10); expect(h).toBeGreaterThanOrEqual(10); expect(ns).toBe("http://www.w3.org/2000/svg"); }
+  expect(look.radius).toBeGreaterThanOrEqual(8);
+  expect(look.shadow).not.toBe("none");
+  // above the button, centred, not covering it or any row's buttons below the list's bottom edge
+  const t = await box(toast), b = await box(extPage.locator("#btn-train-all")), p = await box(extPage.locator(".popup-container"));
+  expect(t.y + t.height, "clear of Train all categories").toBeLessThanOrEqual(b.y);
+  expect(Math.abs(t.x + t.width / 2 - (p.x + p.width / 2)), "centred").toBeLessThanOrEqual(2);
+  expect(t.x).toBeGreaterThanOrEqual(p.x);
+  expect(t.x + t.width).toBeLessThanOrEqual(p.x + p.width);
+});
+
+test("the toast has a close button, replaces the previous one instead of stacking, and goes by itself after 2.5 seconds", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.evaluate(() => { showToast("First", "success"); showToast("Second", "warn"); });
+  await expect(extPage.locator(".toast")).toHaveCount(1);
+  await expect(extPage.locator("#toast")).toHaveText("Second");
+  await expect(extPage.locator("#toast")).toHaveClass(/toast-warn/);
+  await extPage.locator("#toast .toast-close").click();
+  await expect(extPage.locator("#toast")).toBeHidden();
+  await extPage.evaluate(() => showToast("Again", "success"));
+  await expect(extPage.locator("#toast .toast-close")).toHaveAccessibleName("Dismiss");
+  await extPage.waitForTimeout(2300);
+  expect(await extPage.locator("#toast").isVisible(), "still there at 2.3s").toBe(true);
+  await expect(extPage.locator("#toast")).toBeHidden({ timeout: 1000 }); // gone by about 2.5s
+});
+
+test("error and warning toasts are dark too, with their own colour, and stay readable", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  for (const kind of ["error", "warn"]) {
+    await extPage.evaluate((k) => showToast("Something to read", k), kind);
+    const r = await extPage.locator("#toast").evaluate((el) => {
+      const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+      const c = getComputedStyle(el); const [x, y] = [lum(c.color), lum(c.backgroundColor)].sort((a, b) => b - a);
+      return { ratio: (x + 0.05) / (y + 0.05), bg: c.backgroundColor, icon: getComputedStyle(el.querySelector(".toast-icon svg")).color };
+    });
+    expect(r.ratio, kind).toBeGreaterThanOrEqual(4.5);
+    expect(Math.max(...rgb(r.bg)), `${kind} background is dark`).toBeLessThan(80);
+    expect(r.icon, `${kind} has its own icon colour`).not.toBe("rgb(52, 211, 153)");
+  }
+});
+
+test("a new or renamed category name is limited to 45 characters in the field", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }), "7BpCV");
+  await extPage.locator("#btn-new").click();
+  await expect(extPage.locator("#new-name")).toHaveAttribute("maxlength", "45");
+  await extPage.locator("#new-name").pressSequentially("a".repeat(60));
+  await expect(extPage.locator("#new-name")).toHaveValue("a".repeat(45));
+  await extPage.locator("#new-name").press("Escape");
+  await row(extPage, "Pins").locator(".cat-name").dblclick();
+  await expect(nameInput(extPage)).toHaveAttribute("maxlength", "45");
+});

@@ -549,7 +549,7 @@ function startRename(row, opener = null) {
   const input = document.createElement("input");
   input.type = "text";
   input.className = "rename-input";
-  input.maxLength = 60;
+  input.maxLength = 45;
   input.value = oldName;
   input.setAttribute("aria-label", `Rename category ${oldName}`);
   label.hidden = true;

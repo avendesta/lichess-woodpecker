@@ -19,10 +19,10 @@ async function gotoTraining(page, url, options = { waitUntil: "domcontentloaded"
   }
 }
 
-// One rule for a category's name, wherever it comes from (create, rename, import): a string of 1-60 characters that is
+// One rule for a category's name, wherever it comes from (create, rename, import): a string of 1-45 characters that is
 // not "__proto__" (which would rewrite the object's prototype instead of adding a key) and not "All Categories" (the name
 // of the combined training run, which pausedCycles uses as a key).
-const BAD_NAMES = ["__proto__", " __proto__ ", "All Categories", "all categories", "  ALL CATEGORIES  ", "x".repeat(61), "   ", ""];
+const BAD_NAMES = ["__proto__", " __proto__ ", "All Categories", "all categories", "  ALL CATEGORIES  ", "x".repeat(46), "   ", ""];
 
 test("the background refuses bad category names on create and on rename, not just on import", async ({ send, getStorage }) => {
   await send({ type: "CREATE_CATEGORY", name: "Keep" });
@@ -45,10 +45,23 @@ test("the background refuses bad category names on create and on rename, not jus
   expect(after.categories.Keep).toEqual(["abc12"]);
   expect(Object.keys(after.meta.categoryMeta || {})).toEqual(Object.keys(before.meta.categoryMeta || {}));
 
-  const longest = "y".repeat(60);
-  expect((await send({ type: "CREATE_CATEGORY", name: `  ${longest}  ` })).ok, "60 characters is fine, and is trimmed first").toBe(true);
+  const longest = "y".repeat(45);
+  expect((await send({ type: "CREATE_CATEGORY", name: `  ${longest}  ` })).ok, "45 characters is fine, and is trimmed first").toBe(true);
   expect(Object.keys((await getStorage("lichessNotes")).categories)).toEqual(["Keep", longest]);
   expect((await send({ type: "RENAME_CATEGORY", oldName: "Keep", newName: "Kept" })).ok).toBe(true);
+});
+
+test("the limit of 45 is for new names: a category saved under the old limit (up to 60) can still pause and record stats, but cannot be created again", async ({ send, getStorage, seedStorage }) => {
+  const old = "o".repeat(52);
+  await seedStorage({ lichessNotes: { categories: { [old]: ["abc12", "def34"] }, meta: { version: 1, updatedAt: 0 } } });
+  const cycle = { ownerTabId: null, category: old, queue: ["https://lichess.org/training/abc12", "https://lichess.org/training/def34"], currentIndex: 1, totalPuzzles: 2, completedInCycle: 1, correctInCycle: 1, incorrectInCycle: 0, skippedInCycle: 0, cycleCount: 1, isMinimized: false, timerStartedAt: 1_000_000, pausedAt: 2_000_000 };
+  expect((await send({ type: "PARK_CYCLE", cycle })).ok, "pausing it").toBe(true);
+  expect((await send({ type: "RECORD_STATS", stats: { category: old, timeTaken: 5000, totalPuzzles: 2, correct: 1, incorrect: 1, skipped: 0, completedAt: 2_000_000 } })).ok, "recording its stats").toBe(true);
+  const refused = await send({ type: "CREATE_CATEGORY", name: "n".repeat(46) });
+  expect(refused.ok).toBe(false);
+  expect(refused.error).toMatch(/45/);
+  expect((await send({ type: "RENAME_CATEGORY", oldName: old, newName: "short" })).ok, "it can be renamed to a shorter one").toBe(true);
+  expect(Object.keys((await getStorage("pausedCycles")))).toEqual(["short"]);
 });
 
 // ---- The library is written by one place, one change at a time ----
@@ -2222,7 +2235,7 @@ test("import skips what it cannot use and reports it, instead of failing or poll
       "All Categories": ["res11"],
       "": ["emp11"],
       "   ": ["spc11"],
-      "${"x".repeat(61)}": ["lng11"],
+      "${"x".repeat(46)}": ["lng11"],
       "__proto__": ["pro11"],
       "constructor": ["con11"]
     } } }`;
