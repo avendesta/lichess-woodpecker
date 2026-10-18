@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadData();
   bindEvents();
   renderAll();
+  openTip();
 });
 
 /* ============================================================
@@ -146,11 +147,16 @@ function extractPuzzleIdFromPage() {
 // The last-used times are read ONCE, when the popup opens, and kept: saving into a row would otherwise send it to the top
 // from under the pointer. The new order shows the next time the popup opens.
 let sortMode = "alphabetical";
+let tipSettings = { show: true, slam: "fist" }; // Settings > Show tips, and the slam choice (a tip about it is pointless when it is None)
+let lastTip = null; // the tip shown the time before
+let currentTip = null; // the tip showing now
 let usedAt = null; // category -> when it was last used, as of opening
 
 async function loadData() {
   const d = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
-  const { pausedCycles, trainingSession, categorySort } = await browser.storage.local.get(["pausedCycles", "trainingSession", "categorySort"]);
+  const { pausedCycles, trainingSession, categorySort, showTips, slamAnimation, lastTip: shownBefore } = await browser.storage.local.get(["pausedCycles", "trainingSession", "categorySort", "showTips", "slamAnimation", "lastTip"]);
+  tipSettings = { show: showTips !== false, slam: ["none", "fist", "shake"].includes(slamAnimation) ? slamAnimation : "fist" };
+  if (lastTip === null) lastTip = typeof shownBefore === "string" ? shownBefore : "";
   if (!usedAt) {
     sortMode = categorySort === "lastUsed" ? "lastUsed" : "alphabetical";
     const cm = (d && d.meta && d.meta.categoryMeta) || {};
@@ -188,6 +194,65 @@ function colorOf(name) {
 function setDisabled(el, disabled, title) {
   el.setAttribute("aria-disabled", String(disabled)); // stays focusable, so its explanation can be read
   el.title = title;
+}
+
+/* ============================================================
+ * Tips: a line under Train all categories about a feature that is easy to miss. One is picked when the popup opens (never the
+ * one shown last time), it stays while the popup is open, and the refresh icon shows another. Each applies only when the
+ * feature can be used right now. Hidden by the Show tips setting (the close button turns that off too).
+ * ============================================================ */
+const TIPS = [
+  { id: "rename", text: "Double-click a category name to rename it (or press F2).", when: (c) => c.categories >= 1 },
+  { id: "slam", text: "On a puzzle page, press Shift+F to slam the board.", when: (c) => c.slam !== "none" },
+  { id: "order", text: "Settings can list your categories by last used.", when: (c) => c.sort !== "lastUsed" },
+  { id: "jump", text: "Train on a running category jumps to its open tab.", when: (c) => !!c.running },
+  { id: "pause", text: "Pause in the overlay keeps your place for later.", when: () => true },
+  { id: "search", text: "Searching opens the matching categories.", when: (c) => c.categories >= 2 },
+  { id: "drag", text: "You can drag the training overlay anywhere on the page.", when: () => true },
+  { id: "settings", text: "Settings has the overlay theme and the animations.", when: () => true },
+];
+
+function tipsFor(ctx) {
+  return TIPS.filter((t) => t.when(ctx));
+}
+
+function tipContext() {
+  return { categories: Object.keys(data.categories).length, slam: tipSettings.slam, sort: sortMode, running: data.running };
+}
+
+// Picks a tip that applies and is not `avoid`; null when there is none.
+function pickTip(avoid) {
+  const pool = tipsFor(tipContext()).filter((t) => t.id !== avoid);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+}
+
+function showTip(tip) {
+  const el = document.getElementById("tip");
+  currentTip = tip;
+  el.hidden = !tip;
+  if (!tip) return;
+  el.dataset.id = tip.id;
+  document.getElementById("tip-text").textContent = tip.text;
+}
+
+// Called once, as the popup opens: remembers what it showed, so the next time is a different one.
+function openTip() {
+  if (!tipSettings.show) return showTip(null);
+  const tip = pickTip(lastTip);
+  showTip(tip);
+  if (tip) browser.storage.local.set({ lastTip: tip.id }).catch(() => {}); // (a tip is not worth an error)
+}
+
+function refreshTip() {
+  const tip = pickTip(currentTip && currentTip.id);
+  if (!tip) return;
+  showTip(tip);
+  browser.storage.local.set({ lastTip: tip.id }).catch(() => {}); // (a tip is not worth an error)
+}
+
+function hideTips() {
+  showTip(null);
+  browser.storage.local.set({ showTips: false }).catch(() => {}); // the same setting as the switch in Settings
 }
 
 /* ============================================================
@@ -510,6 +575,9 @@ function bindEvents() {
     if (btn.classList.contains("btn-save")) saveTo(row.dataset.cat, row, btn);
     else if (btn.classList.contains("btn-train")) trainCategory(row.dataset.cat, btn);
   });
+
+  document.getElementById("tip-refresh").addEventListener("click", refreshTip);
+  document.getElementById("tip-close").addEventListener("click", hideTips);
 
   categoryList.addEventListener("dblclick", (e) => {
     const row = e.target.closest(".category-row");

@@ -67,13 +67,25 @@
     <div id="category-list" class="category-list" role="list" aria-label="Categories"></div>
 
     <footer class="footer">
+      <!-- the toast sits just above this footer, wherever its top is (the tip under the button is one or two lines) -->
+      <div id="toast" class="toast hidden" data-rich="1" role="status" aria-live="polite"></div>
       <button id="btn-train-all" class="btn-train-all" type="button">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         Train all categories
       </button>
+      <!-- A tip about a feature that is easy to miss: plain text, picked when the popup opens, hidden by the Show tips setting -->
+      <div id="tip" class="tip" hidden>
+        <svg class="tip-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z"/></svg>
+        <span id="tip-text" class="tip-text"></span>
+        <button type="button" id="tip-refresh" class="tip-btn" aria-label="Show another tip" title="Show another tip">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 00-14.5-4.5L4 8"/><polyline points="4 3 4 8 9 8"/><path d="M4 13a8 8 0 0014.5 4.5L20 16"/><polyline points="20 21 20 16 15 16"/></svg>
+        </button>
+        <button type="button" id="tip-close" class="tip-btn" aria-label="Hide tips" title="Hide tips">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
     </footer>
 
-    <div id="toast" class="toast hidden" data-rich="1" role="status" aria-live="polite"></div>
     <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
   </div>
 

@@ -540,6 +540,7 @@ const SETTINGS = {
   autoNext: { id: "set-autonext", name: "Auto-next when correct", def: true },
   slamAnimation: { id: "set-slam", name: "Table slam animation", def: "fist", choices: ["none", "fist", "shake"] },
   categorySort: { id: "set-sort", name: "Category order", def: "alphabetical", choices: ["alphabetical", "lastUsed"] }, // read by the popup when it opens
+  showTips: { id: "set-tips", name: "Show tips in the popup", def: true }, // read by the popup; its close button writes it too
 };
 const dropdowns = {}; // setting key -> its dropdown
 

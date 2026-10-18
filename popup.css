@@ -1,7 +1,7 @@
 /* ============================================================
  * Lichess Woodpecker — Popup Styles
  * Saving the current puzzle is the main action; training a category is secondary.
- * Layout: a flex column capped at 475px (about four categories showing) where only the category list scrolls.
+ * Layout: a flex column capped at 520px (about five categories showing, with the tip line) where only the category list scrolls.
  * ============================================================ */
 
 :root {
@@ -75,7 +75,7 @@ input:focus-visible {
   flex-direction: column;
   gap: 8px;
   width: 380px;
-  max-height: 475px;
+  max-height: 520px; /* 475 for the list, plus the tip line under Train all (up to two lines) */
   padding: 12px;
 }
 
@@ -714,14 +714,62 @@ input:focus-visible {
   cursor: not-allowed;
 }
 
+.footer {
+  position: relative; /* the toast is placed against it */
+}
+
+/* ---- Tip: one quiet line under Train all categories ---- */
+.tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tip[hidden] {
+  display: none;
+}
+
+.tip-icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.tip-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tip-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tip-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
 /* ---- Toast: a dark card above Train all categories (it hides nothing you press); a new one replaces the last ---- */
 .toast {
   --toast-bg: #10291f;
   --toast-border: #256b4a;
   --toast-icon: #34d399;
-  position: absolute; /* inside .popup-container, so it follows the Train all button wherever the popup is drawn */
+  position: absolute; /* inside .footer, so it follows Train all wherever the popup is drawn */
   left: 50%;
-  bottom: 58px; /* just above the Train all button (37px tall plus its padding) */
+  bottom: calc(100% + 8px); /* just above the footer (Train all and its tip), whatever the tip's height */
   z-index: 10;
   display: flex;
   align-items: center;

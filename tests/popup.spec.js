@@ -65,7 +65,7 @@ test("with 100 categories the popup stays compact and only the list scrolls", as
   await openPopup({ extPage, seedStorage }, notes(many(100)), "7BpCV");
   const box = (sel) => extPage.locator(sel).boundingBox();
   const container = await box(".popup-container");
-  expect(container.height).toBeLessThanOrEqual(480); // the same height for 5 categories or 100
+  expect(container.height).toBeLessThanOrEqual(520); // the same height for 5 categories or 100 (475 for the list, plus the tip line)
   expect(container.width).toBeCloseTo(380, 0);
 
   const list = extPage.locator("#category-list");
@@ -83,7 +83,7 @@ test("with 100 categories the popup stays compact and only the list scrolls", as
     return [...document.querySelectorAll(".category-row")].filter((r) => { const b = r.getBoundingClientRect(); return b.top >= l.top - 1 && b.bottom <= l.bottom + 1; }).length;
   });
   expect(whole).toBeGreaterThanOrEqual(4); // about four categories at once, the fifth peeking in to show there is more
-  expect(whole).toBeLessThanOrEqual(5);
+  expect(whole).toBeLessThanOrEqual(6);
 
   await list.evaluate((el) => { el.scrollTop = el.scrollHeight; }); // the last row is reachable
   await expect(row(extPage, "Category 100")).toBeInViewport();
@@ -1482,4 +1482,128 @@ test("if the background does not answer the jump request, Train still starts as 
   });
   await row(extPage, "Pins").locator(".btn-train").click();
   await expect.poll(async () => (await read("trainingSession"))?.category).toBe("Pins");
+});
+
+// ---- A quiet tip under Train all categories: plain text, one picked per open, a refresh icon, a close, a Settings switch ----
+
+const tipId = (page) => page.locator("#tip").getAttribute("data-id");
+const lastTipStored = (page) => page.evaluate(async () => (await browser.storage.local.get("lastTip")).lastTip);
+
+test("a tip shows under Train all categories as plain text, and the popup stays tidy", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  const tip = extPage.locator("#tip");
+  await expect(tip).toBeVisible();
+  expect((await extPage.locator("#tip-text").textContent()).trim().length, "it says something").toBeGreaterThan(15);
+  const [b, t, p] = await Promise.all([box(extPage.locator("#btn-train-all")), box(tip), box(extPage.locator(".popup-container"))]);
+  expect(t.y, "below the button").toBeGreaterThanOrEqual(b.y + b.height);
+  expect(t.y + t.height, "inside the popup").toBeLessThanOrEqual(p.y + p.height + 1);
+  expect(t.height, "one or two lines").toBeLessThanOrEqual(40);
+  expect(p.height, "the popup stays under its cap").toBeLessThanOrEqual(520);
+  expect(await extPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no sideways overflow").toBe(true);
+  // normal text, not a tooltip to hover: no title or hover-only content, and no live region to chatter
+  await expect(extPage.locator("#tip-text")).not.toHaveAttribute("title", /.+/);
+  await expect(tip).not.toHaveAttribute("aria-live", /.+/);
+  await expect(extPage.locator("#tip-refresh")).toHaveAccessibleName("Show another tip");
+  await expect(extPage.locator("#tip-close")).toHaveAccessibleName("Hide tips");
+});
+
+test("a tip is only offered when it applies right now", async ({ extPage }) => {
+  const ids = (ctx) => extPage.evaluate((c) => tipsFor(c).map((t) => t.id), ctx);
+  const base = { categories: 3, slam: "fist", sort: "alphabetical", running: null };
+  const all = await ids(base);
+  expect(all.length).toBeGreaterThanOrEqual(7);
+  expect(all, "rename, search, slam and order apply here").toEqual(expect.arrayContaining(["rename", "search", "slam", "order"]));
+  expect(all, "no cycle is running").not.toContain("jump");
+  expect(await ids({ ...base, categories: 0 }), "nothing to rename or search with no categories").not.toEqual(expect.arrayContaining(["rename"]));
+  expect(await ids({ ...base, categories: 0 })).not.toContain("search");
+  expect(await ids({ ...base, categories: 1 }), "searching needs two").not.toContain("search");
+  expect(await ids({ ...base, slam: "none" }), "the slam is switched off").not.toContain("slam");
+  expect(await ids({ ...base, sort: "lastUsed" }), "already on Last used").not.toContain("order");
+  expect(await ids({ ...base, running: "Pins" })).toContain("jump");
+  // always some tip to show
+  expect((await ids({ categories: 0, slam: "none", sort: "lastUsed", running: null })).length).toBeGreaterThanOrEqual(3);
+});
+
+test("the tip is never the one shown the time before, is stored as lastTip, and stays put while the popup is open", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  let previous = await tipId(extPage);
+  expect(await lastTipStored(extPage), "what was shown is remembered").toBe(previous);
+  for (let i = 0; i < 14; i++) {
+    await extPage.reload();
+    await expect(extPage.locator("#tip")).toBeVisible();
+    const now = await tipId(extPage);
+    expect(now, `open ${i + 2} is not a repeat`).not.toBe(previous);
+    expect(await lastTipStored(extPage)).toBe(now);
+    previous = now;
+  }
+  // while open: saving (which redraws things) does not change it
+  await extPage.evaluate(() => { currentPuzzleId = "7BpCV"; renderAll(); });
+  const open = await tipId(extPage);
+  await row(extPage, "Pins").locator(".btn-save").click();
+  await extPage.waitForTimeout(300);
+  expect(await tipId(extPage)).toBe(open);
+});
+
+test("the refresh icon shows another tip, never the same one twice in a row", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
+  let shown = await extPage.locator("#tip-text").textContent();
+  let id = await tipId(extPage);
+  for (let i = 0; i < 12; i++) {
+    await extPage.locator("#tip-refresh").click();
+    const next = await tipId(extPage);
+    expect(next, `refresh ${i + 1}`).not.toBe(id);
+    expect(await extPage.locator("#tip-text").textContent()).not.toBe(shown);
+    id = next;
+    shown = await extPage.locator("#tip-text").textContent();
+  }
+  expect(await lastTipStored(extPage), "the refreshed one is what is remembered").toBe(id);
+});
+
+test("closing the tip hides tips for good (the Settings switch); the switch being off, or garbage meaning on, is honoured", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: [] }));
+  await expect(extPage.locator("#tip")).toBeVisible();
+  await extPage.locator("#tip-close").click();
+  await expect(extPage.locator("#tip")).toBeHidden();
+  expect(await extPage.evaluate(async () => (await browser.storage.local.get("showTips")).showTips), "the same key as the switch in Settings").toBe(false);
+  await extPage.reload();
+  await expect(extPage.locator("#category-list")).toBeVisible();
+  await expect(extPage.locator("#tip")).toBeHidden();
+  // switched back on in Settings
+  await extPage.evaluate(() => browser.storage.local.set({ showTips: true }));
+  await extPage.reload();
+  await expect(extPage.locator("#tip")).toBeVisible();
+  // a value that is not a real boolean means the default: on
+  await extPage.evaluate(() => browser.storage.local.set({ showTips: "no" }));
+  await extPage.reload();
+  await expect(extPage.locator("#tip")).toBeVisible();
+});
+
+test("the toast stays clear of the tip and of Train all categories, and the tip is readable", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"] }));
+  await extPage.evaluate(() => showToast("Created “Pin”", "success"));
+  const [toast, tip, train] = await Promise.all([box(extPage.locator("#toast")), box(extPage.locator("#tip")), box(extPage.locator("#btn-train-all"))]);
+  expect(toast.y + toast.height, "above Train all").toBeLessThanOrEqual(train.y);
+  expect(toast.y + toast.height, "and so above the tip").toBeLessThanOrEqual(tip.y);
+  const r = await extPage.evaluate(() => {
+    const lum = (c) => { const [r, g, b] = c.match(/[\d.]+/g).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const bg = getComputedStyle(document.querySelector(".popup-container")).backgroundColor;
+    const solid = bg.includes("0)") || bg === "rgba(0, 0, 0, 0)" ? getComputedStyle(document.body).backgroundColor : bg;
+    return ["#tip-text", "#tip-refresh", "#tip-close"].map((q) => { const [x, y] = [lum(getComputedStyle(document.querySelector(q)).color), lum(solid)].sort((a, b) => b - a); return (x + 0.05) / (y + 0.05); });
+  });
+  for (const ratio of r) expect(ratio).toBeGreaterThanOrEqual(4.5);
+});
+
+test("with a long list the popup stays within its cap and still shows five whole rows, whichever tip is up", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes(many(30)), "7BpCV");
+  await extPage.setViewportSize({ width: 400, height: 700 });
+  for (let i = 0; i < 10; i++) {
+    const r = await extPage.evaluate(() => {
+      const l = document.getElementById("category-list").getBoundingClientRect();
+      const whole = [...document.querySelectorAll(".category-row")].filter((e) => { const b = e.getBoundingClientRect(); return b.top >= l.top - 1 && b.bottom <= l.bottom + 1; }).length;
+      return { whole, height: document.querySelector(".popup-container").getBoundingClientRect().height };
+    });
+    expect(r.height, `tip ${i}`).toBeLessThanOrEqual(520);
+    expect(r.whole, `whole rows with tip ${i}`).toBeGreaterThanOrEqual(5);
+    await extPage.locator("#tip-refresh").click();
+  }
 });
