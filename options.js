@@ -1019,6 +1019,9 @@ async function startCategory(name) {
     showToast("No puzzles to train.", "warn");
     return;
   }
+  // already running in a tab that is still open: go there rather than start over
+  const focus = await browser.runtime.sendMessage({ type: "FOCUS_SESSION", category: name }).catch(() => null); // (no answer: carry on as before)
+  if (focus && focus.focused) return;
   const { trainingSession, pausedCycles } = await browser.storage.local.get(["trainingSession", "pausedCycles"]);
   const { session, park, unpark } = buildSession(name, pool, trainingSession, pausedCycles);
   const tab = await browser.tabs.create({ url: "about:blank" });

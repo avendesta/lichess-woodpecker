@@ -1368,3 +1368,76 @@ test("the dropdown's hover, selection and focus are subtle and in the page's own
   expect(parseFloat(ring), "a thin focus ring").toBeLessThanOrEqual(2);
   expect(parseFloat(ring)).toBeGreaterThan(0);
 });
+
+// ---- Train on a category that is already running goes to its open training tab (settings page and popup) ----
+
+const PUZZLE_URLS = ["https://lichess.org/training/abc12", "https://lichess.org/training/def34"];
+const runningSession = (category, ownerTabId, extra = {}) => ({
+  ownerTabId, category, queue: PUZZLE_URLS, currentIndex: 0, totalPuzzles: 2, completedInCycle: 0, correctInCycle: 0, incorrectInCycle: 0,
+  skippedInCycle: 0, cycleCount: 1, isMinimized: false, timerStartedAt: 1_000_000, ...extra,
+});
+const tabsNow = (page) => page.evaluate(async () => { const all = await browser.tabs.query({}); const act = await browser.tabs.query({ active: true, currentWindow: true }); return { count: all.length, active: act[0] && act[0].id }; });
+
+// Opens a puzzle tab, notes its id, and leaves the settings page in front. Returns what a test needs.
+async function trainingTabSetup({ context, extensionUrl, seedStorage }, session, categories = { Pins: ["abc12", "def34"], Forks: ["abc12"] }) {
+  await context.route("https://lichess.org/training/*", (r) => r.fulfill({ contentType: "text/html", body: "<!doctype html><title>puzzle</title>" }));
+  await seedStorage(notes(categories));
+  const admin = await optionsPage({ context, extensionUrl });
+  const owner = await context.newPage();
+  await owner.goto(PUZZLE_URLS[0]);
+  await owner.bringToFront();
+  const ownerId = (await tabsNow(admin)).active;
+  await seedStorage({ trainingSession: session(ownerId) });
+  await admin.bringToFront();
+  await expect.poll(async () => (await tabsNow(admin)).active).not.toBe(ownerId);
+  return { admin, owner, ownerId };
+}
+const stored = (page, key) => page.evaluate(async (k) => (await browser.storage.local.get(k))[k], key);
+
+test("Train on the running category brings its open training tab forward, and changes nothing else", async ({ context, extensionUrl, seedStorage }) => {
+  const { admin, ownerId } = await trainingTabSetup({ context, extensionUrl, seedStorage }, (id) => runningSession("Pins", id));
+  const before = await stored(admin, "trainingSession");
+  const tabs = (await tabsNow(admin)).count;
+  await admin.locator(".category-card", { hasText: "Pins" }).locator(".btn-train").click();
+  await expect.poll(async () => (await tabsNow(admin)).active, { message: "the training tab is in front" }).toBe(ownerId);
+  expect((await tabsNow(admin)).count, "no new tab").toBe(tabs);
+  expect(await stored(admin, "trainingSession"), "the running cycle is untouched").toEqual(before);
+});
+
+test("Train all categories brings its running tab forward the same way", async ({ context, extensionUrl, seedStorage }) => {
+  const { admin, ownerId } = await trainingTabSetup({ context, extensionUrl, seedStorage }, (id) => runningSession("All Categories", id));
+  const before = await stored(admin, "trainingSession");
+  const tabs = (await tabsNow(admin)).count;
+  await admin.locator("#btn-train-all").click();
+  await expect.poll(async () => (await tabsNow(admin)).active).toBe(ownerId);
+  expect((await tabsNow(admin)).count).toBe(tabs);
+  expect(await stored(admin, "trainingSession")).toEqual(before);
+});
+
+test("when the training tab is gone, or the cycle is another category's, paused or finished, Train works as before", async ({ context, extensionUrl, seedStorage }) => {
+  // another category: Forks' Train replaces the running Pins cycle in a new tab
+  let { admin, owner, ownerId } = await trainingTabSetup({ context, extensionUrl, seedStorage }, (id) => runningSession("Pins", id));
+  let tabs = (await tabsNow(admin)).count;
+  await admin.locator(".category-card", { hasText: "Forks" }).locator(".btn-train").click();
+  await expect.poll(async () => (await stored(admin, "trainingSession")).category).toBe("Forks");
+  expect((await tabsNow(admin)).count, "a new tab").toBe(tabs + 1);
+  expect((await stored(admin, "trainingSession")).ownerTabId).not.toBe(ownerId);
+
+  // the owner tab closed: Train on that category starts a fresh cycle in a new tab
+  await owner.close();
+  await seedStorage({ trainingSession: runningSession("Pins", ownerId) });
+  tabs = (await tabsNow(admin)).count;
+  await admin.bringToFront();
+  await admin.locator(".category-card", { hasText: "Pins" }).locator(".btn-train").click();
+  await expect.poll(async () => (await stored(admin, "trainingSession")).ownerTabId).not.toBe(ownerId);
+  expect((await tabsNow(admin)).count).toBe(tabs + 1);
+
+  // paused and finished cycles do not jump (a live owner tab is still open for each)
+  for (const extra of [{ pausedAt: 2_000_000 }, { cycleFinishedAt: 2_000_000 }]) {
+    ({ admin, owner, ownerId } = await trainingTabSetup({ context, extensionUrl, seedStorage }, (id) => runningSession("Pins", id, extra)));
+    tabs = (await tabsNow(admin)).count;
+    await admin.locator(".category-card", { hasText: "Pins" }).locator(".btn-train").click();
+    await expect.poll(async () => (await stored(admin, "trainingSession")).ownerTabId, { message: JSON.stringify(extra) }).not.toBe(ownerId);
+    expect((await tabsNow(admin)).count, JSON.stringify(extra)).toBeGreaterThan(tabs);
+  }
+});

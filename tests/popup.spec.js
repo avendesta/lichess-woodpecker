@@ -1451,3 +1451,35 @@ test("renaming a category in an open Last used popup keeps its row where it was"
   await expect(row(extPage, "Quince")).toBeVisible();
   expect(await names(extPage), "same place, new name").toEqual(["Zebra", "Quince", "Apple", "Berry", "Pears"]);
 });
+
+test("the popup's Train on the running category goes to its open training tab instead of replacing the cycle", async ({ context, extPage, extensionUrl, seedStorage }) => {
+  await servePuzzles(context);
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12", "def34"], Forks: ["abc12"] }));
+  const read = await trainingSetup(context, extPage, extensionUrl);
+  const owner = await context.newPage();
+  await owner.goto("https://lichess.org/training/abc12");
+  await owner.bringToFront();
+  const ownerId = await extPage.evaluate(async () => (await browser.tabs.query({ active: true, currentWindow: true }))[0].id);
+  const session = { ownerTabId: ownerId, category: "Pins", queue: ["https://lichess.org/training/abc12", "https://lichess.org/training/def34"], currentIndex: 0, totalPuzzles: 2, completedInCycle: 0, correctInCycle: 0, incorrectInCycle: 0, skippedInCycle: 0, cycleCount: 1, isMinimized: false, timerStartedAt: 1_000_000 };
+  await seedStorage({ trainingSession: session });
+  await extPage.bringToFront();
+  const tabsNow = () => extPage.evaluate(async () => ({ n: (await browser.tabs.query({})).length, active: (await browser.tabs.query({ active: true, currentWindow: true }))[0].id }));
+  const n = (await tabsNow()).n;
+  await extPage.evaluate(() => { window.__closes = 0; window.close = () => { window.__closes++; }; }); // the real popup closes itself
+  await row(extPage, "Pins").locator(".btn-train").click();
+  await expect.poll(async () => (await tabsNow()).active).toBe(ownerId);
+  await expect.poll(() => extPage.evaluate(() => window.__closes), "the popup closes after the jump").toBe(1);
+  expect((await tabsNow()).n).toBe(n);
+  expect(await read("trainingSession")).toEqual(session);
+});
+
+test("if the background does not answer the jump request, Train still starts as before", async ({ context, extPage, extensionUrl, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12", "def34"] }));
+  const read = await trainingSetup(context, extPage, extensionUrl);
+  await extPage.evaluate(() => {
+    const real = browser.runtime.sendMessage.bind(browser.runtime);
+    browser.runtime.sendMessage = (m, ...r) => (m && m.type === "FOCUS_SESSION" ? Promise.reject(new Error("gone")) : real(m, ...r));
+  });
+  await row(extPage, "Pins").locator(".btn-train").click();
+  await expect.poll(async () => (await read("trainingSession"))?.category).toBe("Pins");
+});

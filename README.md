@@ -77,7 +77,7 @@ A copy you build yourself is not signed, so Firefox only keeps it until it resta
    - Click the ⚡ button next to any category (empty categories can't be trained)
    - Or click "Train all categories" at the bottom of the popup to practice across all categories
    - Use the training overlay to track progress and navigate puzzles
-   - Need to stop? Press **⏸ Pause** in the overlay; pressing Train on that category (or Train all categories) again continues exactly where you left off
+   - Need to stop? Press **⏸ Pause** in the overlay; pressing Train on that category (or Train all categories) again continues exactly where you left off. If that category is already training in a tab that is still open, pressing Train (in the popup or on the options page) just takes you to that tab
 
 3. **Manage & Track**
    - Open options page (⚙️ button): the **Categories** tab manages your categories and puzzles, and the **Statistics** tab shows your training history (the 10 most recent cycles, with **Load more** for older ones, and **Clear Stats**; it updates by itself, so there is nothing to refresh). The title bar with the tabs and **Backup & Restore** stays in view while you scroll

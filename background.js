@@ -454,6 +454,27 @@ async function startSession({ session, park, unpark }) {
   return { ok: true };
 }
 
+/**
+ * Train pressed for a category whose cycle is already running in a tab that is still open: bring that tab (and its window)
+ * forward instead of replacing the cycle. Only a running cycle counts (not paused, not on its score screen). Writes nothing.
+ * Activating a tab and focusing a window need no permission; the tab's URL stays unreadable, as everywhere else.
+ * Returns {ok, focused}. (`chrome.*` with callbacks: Firefox's is callback-only, and the polyfill has no `windows`.)
+ */
+async function focusRunningSession(category) {
+  const { trainingSession: s } = await browser.storage.local.get("trainingSession");
+  if (!s || s.category !== category || s.pausedAt || s.cycleFinishedAt || !Number.isInteger(s.ownerTabId)) return { ok: true, focused: false };
+  let tab;
+  try {
+    tab = await browser.tabs.get(s.ownerTabId);
+  } catch {
+    return { ok: true, focused: false }; // the tab is gone
+  }
+  const done = (call) => new Promise((resolve) => call(() => { void chrome.runtime.lastError; resolve(); }));
+  await done((cb) => chrome.tabs.update(tab.id, { active: true }, cb));
+  if (Number.isInteger(tab.windowId)) await done((cb) => chrome.windows.update(tab.windowId, { focused: true }, cb));
+  return { ok: true, focused: true };
+}
+
 /* ============================================================
  * Training statistics (meta.trainingStats): recorded by the overlay, cleared by the options page
  * ============================================================ */
@@ -517,6 +538,9 @@ async function handleMessage(message, sender) {
 
       case "START_SESSION":
         return await serialized(() => startSession(message));
+
+      case "FOCUS_SESSION":
+        return await focusRunningSession(message.category);
 
       case "RECORD_STATS":
         return await serialized(() => recordStats(message.stats));

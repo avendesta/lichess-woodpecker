@@ -662,8 +662,14 @@ async function startTrainingSession(categoryName, puzzleIds) {
     showToast("No puzzles to train.", "warn");
     return;
   }
-  // Pressing Train continues the category's paused cycle (nothing to ask: to start over, continue and use the overlay's Restart,
-  // which asks first), and otherwise starts a fresh one, replacing whatever is running (no question: Pause is how to keep a place).
+  // A cycle of this category that is running in a tab that is still open: go to that tab (the popup closes), nothing else.
+  const focus = await browser.runtime.sendMessage({ type: "FOCUS_SESSION", category: categoryName }).catch(() => null); // (no answer: carry on as before)
+  if (focus && focus.focused) {
+    window.close();
+    return;
+  }
+  // Pressing Train continues the category's paused cycle (nothing to ask: to start over, continue and use the overlay's Restart),
+  // and otherwise starts a fresh one, replacing whatever else is running (no question: Pause is how to keep a place).
   const { trainingSession, pausedCycles } = await browser.storage.local.get(["trainingSession", "pausedCycles"]);
   const { session, park, unpark } = buildSession(categoryName, puzzleIds, trainingSession, pausedCycles);
   await openSessionInActiveTab(session, { park, unpark });

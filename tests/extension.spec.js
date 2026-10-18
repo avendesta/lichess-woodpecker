@@ -202,6 +202,7 @@ test("the overlay (a content script on a web page) can record stats and ask abou
     { type: "CREATE_CATEGORY", name: "Mine" }, { type: "RENAME_CATEGORY", oldName: "Keep", newName: "Gone" }, { type: "DELETE_CATEGORY", name: "Keep" },
     { type: "ADD_PUZZLE", category: "Keep", puzzleId: "zzz99" }, { type: "REMOVE_PUZZLE", category: "Keep", puzzleId: "abc12" }, { type: "CLEAR_STATS" },
     { type: "IMPORT_APPLY", payload: { app: "lichess-puzzle-saver", exportVersion: 1, data: { categories: { Evil: ["evil1"] } } } },
+    { type: "FOCUS_SESSION", category: "Keep" }, // switching tabs is for the extension's own pages, not for what a web page's script can ask
   ];
   for (const m of changes) expect((await asOverlay(m)).ok, `${m.type} from a web page's content script is refused`).toBe(false);
   expect(await getStorage("lichessNotes"), "the library is exactly as it was").toEqual(before);
