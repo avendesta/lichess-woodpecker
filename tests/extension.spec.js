@@ -384,7 +384,7 @@ test("options page: confirming a rename without changing the name keeps the cate
   expect((await send({ type: "GET_ALL_DATA" })).categories).toEqual({ Mates: ["abc12"] });
 });
 
-test("category metadata: each category gets a distinct colour that survives rename, and saving never touches it", async ({ send, getStorage }) => {
+test("category metadata: each category gets a distinct colour that survives rename, and saving only notes when it was last used", async ({ send, getStorage }) => {
   const meta = async () => (await getStorage("lichessNotes")).meta.categoryMeta || {};
   const names = ["A", "B", "C", "D", "E", "F", "G", "H"];
   for (const n of names) await send({ type: "CREATE_CATEGORY", name: n });
@@ -394,19 +394,21 @@ test("category metadata: each category gets a distinct colour that survives rena
   expect(new Set(names.map((n) => m[n].color)).size).toBe(8);
   expect(names.every((n) => Object.keys(m[n]).join() === "color")).toBe(true);
 
-  // saving (even twice, or into a category that does not exist) writes nothing to the metadata
+  // saving (even twice, or into a category that does not exist) never changes the colour: it only notes when it was used
   const color = m.A.color;
   await send({ type: "ADD_PUZZLE", category: "A", puzzleId: "abc12" });
   await send({ type: "ADD_PUZZLE", category: "A", puzzleId: "abc12" });
   await send({ type: "ADD_PUZZLE", category: "Nope", puzzleId: "abc12" });
   m = await meta();
-  expect(m.A).toEqual({ color });
+  expect(Object.keys(m.A).sort()).toEqual(["color", "lastUsed"]);
+  expect(m.A.color).toBe(color);
   expect(m.Nope).toBeUndefined();
+  const lastUsed = m.A.lastUsed;
 
-  // rename carries the colour; delete removes the entry
+  // rename carries the colour and the time; delete removes the entry
   expect(await send({ type: "RENAME_CATEGORY", oldName: "A", newName: "Z" })).toEqual({ ok: true });
   m = await meta();
-  expect(m.Z).toEqual({ color });
+  expect(m.Z).toEqual({ color, lastUsed });
   expect(m.A).toBeUndefined();
   await send({ type: "DELETE_CATEGORY", name: "Z" });
   expect((await meta()).Z).toBeUndefined();
@@ -2291,4 +2293,66 @@ test("options page: toasts are dark cards with an icon and a Dismiss button, at 
   const fit = await toast.evaluate((el) => { const r = el.getBoundingClientRect(); return [r.left, innerWidth - r.right]; });
   expect(fit[0]).toBeGreaterThanOrEqual(0);
   expect(fit[1]).toBeGreaterThanOrEqual(0);
+});
+
+// ---- Last used: the background stamps a category each time one is used (a save or a removal, or Train) ----
+
+const stampOf = async (getStorage, name) => ((await getStorage("lichessNotes")).meta.categoryMeta || {})[name]?.lastUsed;
+const running = (category) => ({ ...cyc(category), pausedAt: undefined });
+
+test("saving or removing a puzzle, and starting Train, stamp that category's last-used time, and nothing else does", async ({ send, getStorage }) => {
+  for (const c of ["A", "B", "C"]) await send({ type: "CREATE_CATEGORY", name: c });
+  for (const c of ["A", "B", "C"]) expect(await stampOf(getStorage, c), "creating stamps nothing").toBeUndefined();
+  const t0 = Date.now();
+
+  await send({ type: "ADD_PUZZLE", category: "A", puzzleId: "abc12" });
+  const a1 = await stampOf(getStorage, "A");
+  expect(a1).toBeGreaterThanOrEqual(t0);
+  expect(await stampOf(getStorage, "B"), "only the one saved to").toBeUndefined();
+
+  await new Promise((r) => setTimeout(r, 15));
+  await send({ type: "REMOVE_PUZZLE", category: "A", puzzleId: "abc12" });
+  expect(await stampOf(getStorage, "A"), "removing counts as using it too").toBeGreaterThan(a1);
+
+  await send({ type: "ADD_PUZZLE", category: "C", puzzleId: "def34" });
+  await send({ type: "START_SESSION", session: running("C") });
+  const c1 = await stampOf(getStorage, "C");
+  await new Promise((r) => setTimeout(r, 15));
+  await send({ type: "START_SESSION", session: running("C") });
+  expect(await stampOf(getStorage, "C"), "Train stamps it").toBeGreaterThan(c1);
+
+  const before = await stampOf(getStorage, "B");
+  await send({ type: "START_SESSION", session: running("All Categories") });
+  expect(await stampOf(getStorage, "B"), "Train all has no single category to stamp").toBe(before);
+  expect(await stampOf(getStorage, "All Categories")).toBeUndefined();
+});
+
+test("a refused save or removal stamps nothing, and a stamp survives a rename, keeps the colour and goes with a delete", async ({ send, getStorage }) => {
+  await send({ type: "CREATE_CATEGORY", name: "Keep" });
+  await send({ type: "ADD_PUZZLE", category: "Keep", puzzleId: "abc12" });
+  const colour = (await getStorage("lichessNotes")).meta.categoryMeta.Keep.color;
+  const stamp = await stampOf(getStorage, "Keep");
+  await new Promise((r) => setTimeout(r, 15));
+  expect((await send({ type: "ADD_PUZZLE", category: "Keep", puzzleId: "abc12" })).ok, "a duplicate is refused").toBe(false);
+  expect((await send({ type: "REMOVE_PUZZLE", category: "Keep", puzzleId: "zzzzz" })).ok, "not saved there").toBe(false);
+  expect((await send({ type: "ADD_PUZZLE", category: "Nope", puzzleId: "abc12" })).ok).toBe(false);
+  expect(await stampOf(getStorage, "Keep"), "refused changes stamp nothing").toBe(stamp);
+  expect(Object.keys((await getStorage("lichessNotes")).meta.categoryMeta)).toEqual(["Keep"]);
+
+  await send({ type: "RENAME_CATEGORY", oldName: "Keep", newName: "Kept" });
+  const meta = (await getStorage("lichessNotes")).meta.categoryMeta;
+  expect(meta.Kept, "the stamp and the colour move with it").toEqual({ color: colour, lastUsed: stamp });
+  expect(meta.Keep).toBeUndefined();
+  await send({ type: "DELETE_CATEGORY", name: "Kept" });
+  expect((await getStorage("lichessNotes")).meta.categoryMeta.Kept, "and go with a delete").toBeUndefined();
+});
+
+test("a category with a stamp but no colour (saved before colours existed) still shows its hash colour and gets new categories distinct colours", async ({ send, getStorage, seedStorage }) => {
+  await seedStorage({ lichessNotes: { categories: { Old: [] }, meta: { version: 1, updatedAt: 0 } } });
+  await send({ type: "ADD_PUZZLE", category: "Old", puzzleId: "abc12" });
+  const entry = (await getStorage("lichessNotes")).meta.categoryMeta.Old;
+  expect(entry.lastUsed).toBeGreaterThan(0);
+  expect(entry.color, "saving does not invent a colour").toBeUndefined();
+  expect((await send({ type: "CREATE_CATEGORY", name: "New" })).ok).toBe(true);
+  expect(Number.isInteger((await getStorage("lichessNotes")).meta.categoryMeta.New.color)).toBe(true);
 });

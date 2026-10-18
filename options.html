@@ -170,6 +170,19 @@
             </ul>
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-text">
+            <label class="setting-name" for="set-sort">Category order</label>
+            <p class="setting-desc" id="set-sort-desc">How the popup lists your categories. Last used puts the one you saved to or trained most recently on top.</p>
+          </div>
+          <div class="dd">
+            <button type="button" class="dd-trigger" id="set-sort" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="set-sort-list" aria-describedby="set-sort-desc" data-value="alphabetical"><span class="dd-text">Alphabetical</span><svg class="dd-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button>
+            <ul class="dd-menu" id="set-sort-list" role="listbox" aria-label="Category order" tabindex="-1" hidden>
+            <li role="option" id="set-sort-opt-alphabetical" data-value="alphabetical" aria-selected="true"><span>Alphabetical</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            <li role="option" id="set-sort-opt-lastUsed" data-value="lastUsed" aria-selected="false"><span>Last used</span><svg class="dd-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="5 12.5 10 17.5 19 7.5"/></svg></li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
 

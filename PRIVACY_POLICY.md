@@ -15,10 +15,10 @@ Lichess Woodpecker is a browser extension that lets users save Lichess training 
 The extension stores the following data **locally on your device** using the browser's built-in extension storage (`storage.local`):
 
 - **Puzzle IDs** — Short alphanumeric identifiers (e.g., `0j7EP`) extracted from Lichess training puzzle pages.
-- **Category names and colours** — User-created labels used to organize saved puzzle IDs, and the colour you or the extension gave each.
+- **Category names and colours** — User-created labels used to organize saved puzzle IDs, the colour you or the extension gave each, and when you last saved a puzzle to it or trained it (used to list the most recently used first; it stays on your device).
 - **Training results** — For each finished training cycle: the category, how long it took, how many puzzles it had, how many you got correct, incorrect or skipped, and when it finished.
 - **Training in progress** — The shuffled list of puzzle IDs of a cycle you are training, your position in it, its timer and counts, and any cycles you have paused.
-- **Settings** — Where you dragged the training overlay, and the choices on the Settings tab: the overlay's theme (follow Lichess, dark or light), whether the animations behind the score screen are shown, whether the next puzzle comes up by itself after a correct one, and which table-slam animation (fist, shake or none) the Shift+F shortcut plays.
+- **Settings** — Where you dragged the training overlay, and the choices on the Settings tab: the overlay's theme (follow Lichess, dark or light), whether the animations behind the score screen are shown, whether the next puzzle comes up by itself after a correct one, and which table-slam animation (fist, shake or none) the Shift+F shortcut plays, and whether the popup lists categories alphabetically or by last use.
 - **Metadata** — A schema version number and a last-updated timestamp (not linked to any user identity).
 
 All data remains entirely on your device. No data is synced to any cloud service, remote server, or third party.

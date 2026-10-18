@@ -1093,7 +1093,7 @@ test("a cycle's date label follows the calendar: before midnight is Yesterday, n
 
 // ---- The Settings tab: Theme, completion animations, Auto-next and the table slam, saved the moment they change ----
 
-const SETTING_KEYS = ["overlayTheme", "completionAnimations", "autoNext", "slamAnimation"];
+const SETTING_KEYS = ["overlayTheme", "completionAnimations", "autoNext", "slamAnimation", "categorySort"];
 const control = (page, name) => page.getByLabel(name, { exact: true });          // the two switches
 const combo = (page, name) => page.getByRole("combobox", { name, exact: true }); // the two dropdowns (custom, not native selects)
 const listbox = (page, name) => page.getByRole("listbox", { name, exact: true });
@@ -1101,13 +1101,13 @@ const option = (page, name, text) => listbox(page, name).getByRole("option", { n
 const pick = async (page, name, text) => { await combo(page, name).click(); await option(page, name, text).click(); };
 const valueOf = (page, name) => combo(page, name).getAttribute("data-value");
 
-test("the Settings tab is a General card with Theme, Show completion animations, Auto-next when correct and Table slam animation, with sensible defaults", async ({ context, extensionUrl }) => {
+test("the Settings tab is a General card with Theme, Show completion animations, Auto-next when correct, Table slam animation and Category order, with sensible defaults", async ({ context, extensionUrl }) => {
   const page = await optionsPage({ context, extensionUrl });
   await tab(page, "Settings").click();
   await expect(page.locator("#panel-settings")).toBeVisible();
   await expect(page.locator("#panel-settings h2")).toHaveText("General");
   const names = await page.locator("#panel-settings .setting-name").allTextContents();
-  expect(names).toEqual(["Theme", "Show completion animations", "Auto-next when correct", "Table slam animation"]);
+  expect(names).toEqual(["Theme", "Show completion animations", "Auto-next when correct", "Table slam animation", "Category order"]);
   for (const d of await page.locator("#panel-settings .setting-desc").all()) expect((await d.textContent()).trim().length, "every setting says what it does").toBeGreaterThan(15);
 
   // nothing stored: the defaults
@@ -1117,6 +1117,8 @@ test("the Settings tab is a General card with Theme, Show completion animations,
   await expect(control(page, "Auto-next when correct")).toBeChecked();
   expect(await valueOf(page, "Table slam animation")).toBe("fist");
   await expect(combo(page, "Table slam animation")).toHaveText("Fist");
+  expect(await valueOf(page, "Category order")).toBe("alphabetical");
+  await expect(combo(page, "Category order")).toHaveText("Alphabetical");
   // the choices (the lists are closed until opened)
   await expect(listbox(page, "Theme")).toBeHidden();
   await combo(page, "Theme").click();
@@ -1124,6 +1126,9 @@ test("the Settings tab is a General card with Theme, Show completion animations,
   await page.keyboard.press("Escape");
   await combo(page, "Table slam animation").click();
   expect(await listbox(page, "Table slam animation").getByRole("option").allTextContents()).toEqual(["None", "Fist", "Shake"]);
+  await page.keyboard.press("Escape");
+  await combo(page, "Category order").click();
+  expect(await listbox(page, "Category order").getByRole("option").allTextContents()).toEqual(["Alphabetical", "Last used"]);
   await page.keyboard.press("Escape");
   // no native select is left to show the browser's own grey menu
   await expect(page.locator("#panel-settings select")).toHaveCount(0);
@@ -1156,6 +1161,12 @@ test("each setting is saved as soon as it changes, under its own key, and the pa
   await expect.poll(() => getStorage("slamAnimation")).toBe("none");
   await control(page, "Show completion animations").check();
   await expect.poll(() => getStorage("completionAnimations")).toBe(true);
+  await pick(page, "Category order", "Last used");
+  await expect.poll(() => getStorage("categorySort")).toBe("lastUsed");
+  await pick(page, "Category order", "Alphabetical");
+  await expect.poll(() => getStorage("categorySort")).toBe("alphabetical");
+  await pick(page, "Category order", "Last used");
+  await expect.poll(() => getStorage("categorySort")).toBe("lastUsed");
 
   // a fresh page shows what was saved
   const again = await optionsPage({ context, extensionUrl });
@@ -1165,27 +1176,32 @@ test("each setting is saved as soon as it changes, under its own key, and the pa
   expect(await valueOf(again, "Table slam animation")).toBe("none");
   await expect(combo(again, "Table slam animation")).toHaveText("None");
   expect(await valueOf(again, "Theme")).toBe("auto");
+  expect(await valueOf(again, "Category order")).toBe("lastUsed");
+  await expect(combo(again, "Category order")).toHaveText("Last used");
 });
 
 test("the Settings tab follows storage live, shows the default for a value it does not know, and never saves what was not changed", async ({ context, extensionUrl, seedStorage }) => {
-  await seedStorage({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer" }); // garbage
+  await seedStorage({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer", categorySort: "newest" }); // garbage
   const page = await optionsPage({ context, extensionUrl });
   await tab(page, "Settings").click();
   expect(await valueOf(page, "Theme")).toBe("auto");
   expect(await valueOf(page, "Table slam animation")).toBe("fist");
+  expect(await valueOf(page, "Category order")).toBe("alphabetical");
   await expect(control(page, "Show completion animations")).toBeChecked();
   await expect(control(page, "Auto-next when correct")).toBeChecked();
   // looking at it changed nothing in storage
-  expect(await page.evaluate(() => browser.storage.local.get(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations"]))).toEqual({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer" });
+  expect(await page.evaluate(() => browser.storage.local.get(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations", "categorySort"]))).toEqual({ overlayTheme: "neon", completionAnimations: "yes", autoNext: 0, slamAnimation: "hammer", categorySort: "newest" });
 
   // changed from elsewhere (another options tab): this page catches up
-  await page.evaluate(() => browser.storage.local.set({ overlayTheme: "dark", slamAnimation: "shake", autoNext: false, completionAnimations: false }));
+  await page.evaluate(() => browser.storage.local.set({ overlayTheme: "dark", slamAnimation: "shake", autoNext: false, completionAnimations: false, categorySort: "lastUsed" }));
+  await expect(combo(page, "Category order")).toHaveText("Last used");
   await expect(combo(page, "Theme")).toHaveText("Dark");
   expect(await valueOf(page, "Theme")).toBe("dark");
   await expect(combo(page, "Table slam animation")).toHaveText("Shake");
   await expect(control(page, "Auto-next when correct")).not.toBeChecked();
   await expect(control(page, "Show completion animations")).not.toBeChecked();
-  await page.evaluate(() => browser.storage.local.remove(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations"]));
+  await page.evaluate(() => browser.storage.local.remove(["overlayTheme", "slamAnimation", "autoNext", "completionAnimations", "categorySort"]));
+  await expect(combo(page, "Category order")).toHaveText("Alphabetical");
   await expect(combo(page, "Theme")).toHaveText("Auto (follow Lichess)");
   await expect(combo(page, "Table slam animation")).toHaveText("Fist");
 });
@@ -1200,6 +1216,8 @@ test("the switches work from the keyboard and tell a screen reader what changed"
   await expect(page.locator("#sr-status")).toContainText(/off/i);
   await pick(page, "Table slam animation", "Shake");
   await expect(page.locator("#sr-status")).toHaveText("Table slam animation: Shake");
+  await pick(page, "Category order", "Last used");
+  await expect(page.locator("#sr-status")).toHaveText("Category order: Last used");
 });
 
 // ---- The dropdowns: dark custom menus, not the browser's own grey one ----

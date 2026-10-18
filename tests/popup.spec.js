@@ -803,7 +803,7 @@ test("the popup is compact: tighter header, card, rows and Train all, with long 
   await expect(row(extPage, "Pins").locator(".cat-paused")).toBeVisible();
 });
 
-test("Train starts that category's session without touching what is saved or its metadata", async ({ context, extPage, extensionUrl, seedStorage }) => {
+test("Train starts that category's session without touching what is saved or its colours, and notes only that category as just used", async ({ context, extPage, extensionUrl, seedStorage }) => {
   const seed = notes({ Pins: ["a1a1a", "b2b2b"], Forks: ["c3c3c"], Empty: [] }, { Forks: { color: 2 } });
   await openPopup({ extPage, seedStorage }, seed);
   const read = await trainingSetup(context, extPage, extensionUrl);
@@ -815,7 +815,9 @@ test("Train starts that category's session without touching what is saved or its
   expect(typeof session.ownerTabId).toBe("number");
   const after = await read("lichessNotes");
   expect(after.categories).toEqual(seed.lichessNotes.categories); // saved puzzles untouched
-  expect(after.meta.categoryMeta).toEqual({ Forks: { color: 2 } }); // nothing was written for training
+  expect(after.meta.categoryMeta.Forks, "other categories untouched").toEqual({ color: 2 });
+  expect(Object.keys(after.meta.categoryMeta).sort(), "only the trained one gained an entry").toEqual(["Forks", "Pins"]);
+  expect(Object.keys(after.meta.categoryMeta.Pins), "just the last-used time, no invented colour").toEqual(["lastUsed"]);
 });
 
 test("Train all uses every saved puzzle, and empty categories and an empty library cannot start anything", async ({ context, extPage, extensionUrl, seedStorage }) => {
@@ -1382,4 +1384,70 @@ test("a new or renamed category name is limited to 45 characters in the field", 
   await extPage.locator("#new-name").press("Escape");
   await row(extPage, "Pins").locator(".cat-name").dblclick();
   await expect(nameInput(extPage)).toHaveAttribute("maxlength", "45");
+});
+
+// ---- Category order: Settings says Alphabetical (the default) or Last used; the popup follows it when it opens ----
+
+const used = (stamps) => Object.fromEntries(Object.entries(stamps).map(([name, lastUsed]) => [name, { lastUsed }]));
+const fruit = () => ({ Apple: [], Mango: [], Pears: [], Zebra: [], Berry: [] });
+
+test("with Category order set to Last used the popup lists the newest first, then the never-used ones A to Z", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Zebra: 3000, Mango: 2000, Apple: 1000 })), categorySort: "lastUsed" });
+  expect(await names(extPage)).toEqual(["Zebra", "Mango", "Apple", "Berry", "Pears"]);
+});
+
+test("Alphabetical (the default), an unknown value, or no stamps at all gives A to Z", async ({ extPage, seedStorage }) => {
+  const az = ["Apple", "Berry", "Mango", "Pears", "Zebra"];
+  await openPopup({ extPage, seedStorage }, notes(fruit(), used({ Zebra: 3000, Mango: 2000 })));
+  expect(await names(extPage), "nothing chosen").toEqual(az);
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Zebra: 3000 })), categorySort: "alphabetical" });
+  expect(await names(extPage)).toEqual(az);
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Zebra: 3000 })), categorySort: "newest" });
+  expect(await names(extPage), "unknown means alphabetical").toEqual(az);
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit()), categorySort: "lastUsed" });
+  expect(await names(extPage), "Last used with no history yet is A to Z").toEqual(az);
+});
+
+test("in Last used the open popup keeps its order (a row never moves under the pointer) and a fresh open shows the new one", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Apple: 3000, Mango: 2000 })), categorySort: "lastUsed" }, "7BpCV");
+  expect(await names(extPage)).toEqual(["Apple", "Mango", "Berry", "Pears", "Zebra"]);
+  const before = await box(row(extPage, "Zebra"));
+  await row(extPage, "Zebra").locator(".btn-save").click(); // using Zebra
+  await expect(row(extPage, "Zebra")).toHaveClass(/is-saved/);
+  expect(await names(extPage), "the order is frozen while the popup is open").toEqual(["Apple", "Mango", "Berry", "Pears", "Zebra"]);
+  expect(await box(row(extPage, "Zebra")), "and the row did not move").toEqual(before);
+  await extPage.reload(); // the next time it opens
+  await expect(extPage.locator("#category-list")).toBeVisible();
+  expect((await names(extPage))[0], "Zebra, just used, is on top").toBe("Zebra");
+});
+
+test("a category created in the open popup shows up (and is in view) even though the order is frozen, also after saving into another one", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Apple: 3000 })), categorySort: "lastUsed" }, "7BpCV");
+  await row(extPage, "Zebra").locator(".btn-save").click(); // used now, but the open popup does not re-order for it, not even when the list is redrawn
+  await expect(row(extPage, "Zebra")).toHaveClass(/is-saved/);
+  await extPage.locator("#btn-new").click();
+  await extPage.locator("#new-name").fill("Aardvark");
+  await extPage.locator("#new-name").press("Enter");
+  await expect(row(extPage, "Aardvark")).toBeVisible();
+  const order = await names(extPage);
+  expect(order[0], "the one used at opening is still first").toBe("Apple");
+  expect(order.indexOf("Zebra"), "Zebra, used since, has not jumped up").toBeGreaterThan(order.indexOf("Berry"));
+  expect(order).toContain("Aardvark");
+  expect(await extPage.evaluate(() => { const l = document.getElementById("category-list").getBoundingClientRect(); const r = document.querySelector('.category-row[data-cat="Aardvark"]').getBoundingClientRect(); return r.top >= l.top - 1 && r.bottom <= l.bottom + 1; }), "scrolled into view").toBe(true);
+});
+
+test("searching in Last used keeps the same relative order of what matches", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, { ...notes({ "Pin A": [], "Pin B": [], "Pin C": [], Other: [] }, used({ "Pin C": 3000, "Pin A": 2000, Other: 5000 })), categorySort: "lastUsed" });
+  await extPage.locator("#search").fill("pin");
+  expect(await names(extPage)).toEqual(["Pin C", "Pin A", "Pin B"]);
+});
+
+test("renaming a category in an open Last used popup keeps its row where it was", async ({ extPage, seedStorage }) => {
+  await openPopup({ extPage, seedStorage }, { ...notes(fruit(), used({ Zebra: 3000, Mango: 2000, Apple: 1000 })), categorySort: "lastUsed" });
+  expect(await names(extPage)).toEqual(["Zebra", "Mango", "Apple", "Berry", "Pears"]);
+  await row(extPage, "Mango").locator(".cat-name").dblclick();
+  await nameInput(extPage).fill("Quince");
+  await nameInput(extPage).press("Enter");
+  await expect(row(extPage, "Quince")).toBeVisible();
+  expect(await names(extPage), "same place, new name").toEqual(["Zebra", "Quince", "Apple", "Berry", "Pears"]);
 });

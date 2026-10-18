@@ -69,7 +69,7 @@ async function saveAllData(data) {
 }
 
 /* ============================================================
- * Per-category metadata: meta.categoryMeta[name] = { color }, optional
+ * Per-category metadata: meta.categoryMeta[name] = { color?, lastUsed? }, optional
  * ============================================================
  * color is an index into the popup's palette (the colours live in popup.js). Categories that predate this have none
  * and show hashColor(name); keep hashColor identical to popup.js (a test compares them).
@@ -89,6 +89,12 @@ function categoryMeta(data) {
 function colorOf(data, name) {
   const stored = categoryMeta(data)[name]?.color;
   return stored === undefined ? hashColor(name) : stored;
+}
+
+/** Notes that a category was just used (a puzzle saved or removed, or Train pressed): the popup can list the newest first. */
+function touch(data, name) {
+  const meta = categoryMeta(data);
+  meta[name] = { ...meta[name], lastUsed: Date.now() };
 }
 
 /** The palette index used by the fewest existing categories, so the first eight all look different. */
@@ -170,7 +176,7 @@ async function renameCategory(oldName, newName) {
   if (clash) return { ok: false, error: `Category "${clash}" already exists.` };
 
   const meta = categoryMeta(data);
-  meta[trimmedNew] = { color: colorOf(data, oldName) }; // keeps the colour even if it was only the hash
+  meta[trimmedNew] = { ...meta[oldName], color: colorOf(data, oldName) }; // keeps the colour even if it was only the hash, and when it was last used
   delete meta[oldName];
   data.categories[trimmedNew] = data.categories[oldName];
   delete data.categories[oldName];
@@ -207,6 +213,7 @@ async function addPuzzleToCategory(category, puzzleId) {
     return { ok: false, duplicate: true, error: "Already saved." };
 
   data.categories[category].push(puzzleId);
+  touch(data, category);
   await saveAllData(data);
   return { ok: true };
 }
@@ -315,6 +322,7 @@ async function removePuzzleFromCategory(category, puzzleId) {
   if (idx === -1) return { ok: false, error: "Puzzle not found in category." };
 
   data.categories[category].splice(idx, 1);
+  touch(data, category);
   await saveAllData(data);
   return { ok: true };
 }
@@ -434,6 +442,15 @@ async function startSession({ session, park, unpark }) {
   if (park) parked[park.category] = park;
   if (unpark) delete parked[unpark];
   await writeParked(parked, { trainingSession: session });
+  try { // Train counts as using the category (Train all has no one category); never worth failing the start for
+    const data = await getAllData();
+    if (hasCategory(data, session.category)) {
+      touch(data, session.category);
+      await saveAllData(data);
+    }
+  } catch (err) {
+    console.warn("[lichess-woodpecker] Could not note the last-used time:", err);
+  }
   return { ok: true };
 }
 

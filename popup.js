@@ -142,16 +142,31 @@ function extractPuzzleIdFromPage() {
 /* ============================================================
  * Data helpers
  * ============================================================ */
+// How the list is ordered (Settings > Category order): "lastUsed" lists the most recently used first, anything else A to Z.
+// The last-used times are read ONCE, when the popup opens, and kept: saving into a row would otherwise send it to the top
+// from under the pointer. The new order shows the next time the popup opens.
+let sortMode = "alphabetical";
+let usedAt = null; // category -> when it was last used, as of opening
+
 async function loadData() {
   const d = await browser.runtime.sendMessage({ type: "GET_ALL_DATA" });
-  const { pausedCycles, trainingSession } = await browser.storage.local.get(["pausedCycles", "trainingSession"]);
+  const { pausedCycles, trainingSession, categorySort } = await browser.storage.local.get(["pausedCycles", "trainingSession", "categorySort"]);
+  if (!usedAt) {
+    sortMode = categorySort === "lastUsed" ? "lastUsed" : "alphabetical";
+    const cm = (d && d.meta && d.meta.categoryMeta) || {};
+    usedAt = Object.fromEntries(Object.keys(cm).filter((k) => Number.isFinite(cm[k] && cm[k].lastUsed)).map((k) => [k, cm[k].lastUsed]));
+  }
   // the cycle being trained now (not paused, not on its score screen): its bolt is drawn gold
   const running = trainingSession && !trainingSession.pausedAt && !trainingSession.cycleFinishedAt && typeof trainingSession.category === "string" ? trainingSession.category : null;
   data = { categories: (d && d.categories) || {}, meta: (d && d.meta) || {}, paused: pausedCycles || {}, running };
 }
 
 function categoryNames() {
-  return Object.keys(data.categories).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  const az = (a, b) => a.localeCompare(b, undefined, { sensitivity: "base" });
+  const names = Object.keys(data.categories);
+  if (sortMode !== "lastUsed") return names.sort(az);
+  // newest first; what has never been used (or was made after opening) follows, A to Z
+  return names.sort((a, b) => (usedAt[b] ?? -1) - (usedAt[a] ?? -1) || az(a, b));
 }
 
 function savedIn() {
@@ -587,6 +602,10 @@ function startRename(row, opener = null) {
         done = false;
       } else close();
       return;
+    }
+    if (usedAt && Object.hasOwn(usedAt, oldName)) { // the renamed row keeps its place in a frozen Last used order
+      usedAt[name] = usedAt[oldName];
+      delete usedAt[oldName];
     }
     await loadData();
     renderAll();

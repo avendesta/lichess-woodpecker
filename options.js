@@ -529,7 +529,7 @@ async function copyToClipboard(text) {
 }
 
 /* ============================================================
- * Settings: Theme, completion animations, Auto-next and the table slam. Each is its own storage key (so two changes never
+ * Settings: Theme, completion animations, Auto-next, the table slam and the category order. Each is its own storage key (so two changes never
  * overwrite each other) and is saved the moment its control changes; nothing is written just by looking. The pages that use a
  * setting (the overlay, the slam script) read the key themselves and fall back to the default for anything they do not
  * know, as this page does.
@@ -539,6 +539,7 @@ const SETTINGS = {
   completionAnimations: { id: "set-completion", name: "Show completion animations", def: true },
   autoNext: { id: "set-autonext", name: "Auto-next when correct", def: true },
   slamAnimation: { id: "set-slam", name: "Table slam animation", def: "fist", choices: ["none", "fist", "shake"] },
+  categorySort: { id: "set-sort", name: "Category order", def: "alphabetical", choices: ["alphabetical", "lastUsed"] }, // read by the popup when it opens
 };
 const dropdowns = {}; // setting key -> its dropdown
 
