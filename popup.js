@@ -202,7 +202,7 @@ function setDisabled(el, disabled, title) {
  * feature can be used right now. Hidden by the Show tips setting (the close button turns that off too).
  * ============================================================ */
 const TIPS = [
-  { id: "rename", text: "Double-click a category name to rename it (or press F2).", when: (c) => c.categories >= 1 },
+  { id: "rename", text: "Double-click a category name to rename it.", when: (c) => c.categories >= 1 },
   { id: "slam", text: "On a puzzle page, press Shift+F to slam the board.", when: (c) => c.slam !== "none" },
   { id: "order", text: "Settings can list your categories by last used.", when: (c) => c.sort !== "lastUsed" },
   { id: "jump", text: "Train on a running category jumps to its open tab.", when: (c) => !!c.running },
@@ -583,13 +583,6 @@ function bindEvents() {
     const row = e.target.closest(".category-row");
     if (row && !e.target.closest("button, input")) startRename(row);
   });
-  categoryList.addEventListener("keydown", (e) => {
-    const row = e.key === "F2" && !e.target.closest("input") && e.target.closest(".category-row");
-    if (row) {
-      e.preventDefault();
-      startRename(row, e.target);
-    }
-  });
 
   // Train grows (and Save shrinks) while Train is hovered or keyboard-focused. A class on the group, not :has(),
   // because the extension supports Firefox 109 and :has() only arrived in 121.
@@ -613,7 +606,7 @@ function bindEvents() {
 }
 
 /* ============================================================
- * Rename a category in place: double-click it (or F2 on a focused row)
+ * Rename a category in place: double-click it
  * ============================================================ */
 // The name becomes a field inside the same row (so nothing moves). Enter or leaving the field commits a valid new name;
 // Escape, an unchanged name, or leaving it with a bad one cancels. The name rules are the background's (it refuses a
@@ -625,7 +618,7 @@ function renameProblem(oldName, value) {
   return clash ? `“${clash}” already exists.` : "";
 }
 
-function startRename(row, opener = null) {
+function startRename(row) {
   if (row.querySelector(".rename-input")) return;
   const oldName = row.dataset.cat;
   const label = row.querySelector(".cat-name");
@@ -693,7 +686,6 @@ function startRename(row, opener = null) {
     } else if (e.key === "Escape") {
       e.stopPropagation();
       close();
-      if (opener && opener.isConnected) opener.focus();
     }
   });
   input.focus();

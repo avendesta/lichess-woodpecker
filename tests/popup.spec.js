@@ -1259,17 +1259,6 @@ test("clicking away commits a good new name and quietly cancels an unchanged or 
   expect(Object.keys((await getStorage("lichessNotes")).categories).sort()).toEqual(["Forks", "Mates"]);
 });
 
-test("F2 renames the category whose row has focus, so a keyboard user can do it too", async ({ extPage, seedStorage }) => {
-  await openPopup({ extPage, seedStorage }, notes({ Pins: ["abc12"], Forks: [] }), "7BpCV");
-  await row(extPage, "Forks").locator(".btn-train").focus();
-  await extPage.keyboard.press("F2");
-  await expect(nameInput(extPage)).toHaveCount(1);
-  await expect(nameInput(extPage)).toHaveValue("Forks");
-  await expect(nameInput(extPage)).toBeFocused();
-  await nameInput(extPage).press("Escape");
-  await expect(row(extPage, "Forks").locator(".btn-train"), "focus goes back to where it was").toBeFocused();
-});
-
 test("only one category is renamed at a time, and a double-click in the search box or on the totals does nothing", async ({ extPage, seedStorage }) => {
   await openPopup({ extPage, seedStorage }, notes({ Pins: [], Forks: [] }), "7BpCV");
   await row(extPage, "Pins").locator(".cat-name").dblclick();
