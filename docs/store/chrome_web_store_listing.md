@@ -7,7 +7,7 @@ source of truth to change or re-check them against.
 
 ## 0. Before you start
 
-1. Run `/release 1.3.0`. It bumps the version, builds the packages and publishes the GitHub Release. (1.2.0 is already tagged, and the
+1. Run `/release 1.3.1`. It bumps the version, builds the packages and publishes the GitHub Release. (1.2.0 is already tagged, and the
    Firefox manifest changed after it: see the Firefox listing file. The Chrome package itself is unchanged apart from the version.)
 2. Open the item in the dashboard: **Package → Upload new package**. The version must be **higher than the one currently
    published** (shown on the Package tab).
@@ -16,9 +16,9 @@ source of truth to change or re-check them against.
 
 | | |
 |---|---|
-| File | `lichess-puzzle-saver-v1.3.0.zip` (the file name still carries the project's old name; it contains Lichess Woodpecker) |
+| File | `lichess-puzzle-saver-v1.3.1.zip` (the file name still carries the project's old name; it contains Lichess Woodpecker) |
 | Where | `release/` in this repository after `npm run package`, or the same file attached to the [GitHub Release](https://github.com/avendesta/lichess-woodpecker/releases) |
-| Check | Manifest V3, version 1.3.0, 18 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
+| Check | Manifest V3, version 1.3.1, 18 files, permissions exactly `storage`, `activeTab`, `scripting`, and no `host_permissions` key (see the note below about what the dashboard shows) |
 
 **What the Package tab shows after you upload.** The Draft column lists `storage, activeTab, scripting, host permission`. That is expected:
 
@@ -163,7 +163,7 @@ The dashboard needs a verified contact email under **Account**. The public conta
 
 ## 8. Pre-submit checklist
 
-- [ ] `/release 1.3.0` done; the zip in `release/` (or on the GitHub Release) is version 1.3.0
+- [ ] `/release 1.3.1` done; the zip in `release/` (or on the GitHub Release) is version 1.3.1
 - [ ] Checked Save in the real popup by hand (automation cannot open the toolbar popup)
 - [ ] Description, screenshots and promo images uploaded as above
 - [ ] Permission justifications pasted for all four rows; remote code answered **No**

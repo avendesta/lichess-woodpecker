@@ -9,9 +9,9 @@ The version-1.2.0 `.xpi` was **not** ready: from 3 November 2025 Mozilla require
 (`browser_specific_settings.gecko.data_collection_permissions`), and signing a new add-on without it is rejected. The manifest now
 declares `"required": ["none"]` (the extension sends nothing anywhere), so the next release's `.xpi` is ready.
 
-1. Run `/release 1.3.0`. It bumps the version, builds `release/lichess-woodpecker-v1.3.0.xpi` and publishes the GitHub Release.
+1. Run `/release 1.3.1`. It bumps the version, builds `release/lichess-woodpecker-v1.3.1.xpi` and publishes the GitHub Release.
    (1.2.0 is already tagged and its `.xpi` lacks the key. Do not submit that one.)
-2. Submit the 1.3.0 `.xpi` as below.
+2. Submit the 1.3.1 `.xpi` as below.
 
 What the validation will show you: **0 errors and 2 warnings**, both of them `KEY_FIREFOX_UNSUPPORTED_BY_MIN_VERSION` /
 `KEY_FIREFOX_ANDROID_UNSUPPORTED_BY_MIN_VERSION` ("`strict_min_version` is 109, but Firefox only learned this key in 140"). They are
@@ -23,7 +23,7 @@ and drop older Firefox.
 
 1. Sign in at https://addons.mozilla.org/developers/ and choose **Submit a New Add-on**.
 2. **Distribution:** **On this site** (listed on AMO). ("On your own" is for add-ons you host yourself.)
-3. **Upload:** `release/lichess-woodpecker-v1.3.0.xpi` from this repository after `npm run package:firefox`, or the same file on the
+3. **Upload:** `release/lichess-woodpecker-v1.3.1.xpi` from this repository after `npm run package:firefox`, or the same file on the
    [GitHub Release](https://github.com/avendesta/lichess-woodpecker/releases). It is unsigned; AMO signs it.
 4. Wait for validation: expect the 0 errors and 2 warnings described above.
 5. **Platforms:** tick **Windows, macOS and Linux**. Leave **Android off**: the extension has only been tested in desktop Firefox.
@@ -133,7 +133,7 @@ The extension makes no network requests of its own and has no server; training o
 ## 4. Version notes (shown on the add-on's page)
 
 ```text
-Version 1.3.0: a new Settings tab (overlay theme, score-screen animations, Auto-next, table-slam animation), a scene behind the score screen, and a Shift+F board slam (fist or shake, or off). Auto-next moved from the overlay to Settings; your choice is kept.
+Version 1.3.1: new popup touches (creating a category replaces the search bar in place; double-click a category to rename it; a quiet tip line you can turn off), a Category order setting (alphabetical or last used), Train jumps to a category's already-open training tab, Restart no longer asks for confirmation, and dark card notifications. Category names are limited to 45 characters (existing longer names keep working).
 ```
 
 For the very first submission use this instead:
@@ -151,7 +151,7 @@ First release on Firefox Add-ons. Save Lichess puzzles into categories and train
 
 ## 6. Pre-submit checklist
 
-- [ ] `/release 1.3.0` done; the `.xpi` is version 1.3.0
+- [ ] `/release 1.3.1` done; the `.xpi` is version 1.3.1
 - [ ] Validation shows 0 errors (2 version warnings expected)
 - [ ] Platforms: desktop only; source code question answered **No**
 - [ ] Name, URL, summary, description, categories, support details entered
