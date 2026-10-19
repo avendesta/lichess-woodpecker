@@ -52,13 +52,13 @@ SAVE PUZZLES
 
 TRAIN IN CYCLES
 • Press the lightning-bolt button on a category (or "Train all categories") and the extension takes you through its puzzles in random order.
-• A small overlay on the Lichess page shows your progress, a timer and your correct, incorrect and skipped counts. Skip a puzzle, restart the cycle (it asks first), pause and continue exactly where you left off, or minimize the overlay.
+• A small overlay on the Lichess page shows your progress, a timer and your correct, incorrect and skipped counts. Skip a puzzle, restart the cycle, pause and continue exactly where you left off, or minimize the overlay.
 • A correct solve can move on to the next puzzle by itself, while mistakes wait for you so you can study them.
 • When a cycle ends, a score screen shows your first-try accuracy and time, with a one-click Repeat for the next, reshuffled cycle, and a scene behind your score: fireworks for a perfect cycle, sparkles, floating particles, or a storm.
 • The overlay follows Lichess's light or dark theme, or you can choose Dark or Light.
 
 SETTINGS
-• A Settings tab on the options page: choose the overlay's theme, turn the score-screen animations and Auto-next on or off, and pick a table-slam animation.
+• A Settings tab on the options page: choose the overlay's theme, turn the score-screen animations and Auto-next on or off, pick a table-slam animation, choose how the popup orders your categories (alphabetical or last used), and turn its tips on or off.
 • Press Shift+F on a puzzle page to slam the board: a giant fist, or a shaking table (or None to turn it off).
 
 TRACK YOUR PROGRESS
